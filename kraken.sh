@@ -63,26 +63,29 @@ readonly ASCII_ART='⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣴⣶⣤⣄⠀⠀⠀⠀⠀
 # ============================================================================
 readonly INFO_PANEL=(
     ""
-    "${BOLD}${BRIGHT_MAGENTA}╔═══════════════════════════════════════════════════╗${RESET}"
-    "${BOLD}${BRIGHT_MAGENTA}║${RESET}  ${BOLD}${SCRIPT_NAME} v${SCRIPT_VERSION}${RESET}"
-    "${BRIGHT_MAGENTA}║${RESET}  Creator: ${BRIGHT_CYAN}\e]8;;https://github.com/WhiteMuush\aMelvin PETIT\e]8;;\a${RESET}"
-    "${BOLD}${BRIGHT_MAGENTA}╚═══════════════════════════════════════════════════╝${RESET}"
+    "${BOLD}${BRIGHT_MAGENTA}▄ •▄ ▄▄▄   ▄▄▄· ▄ •▄ ▄▄▄ . ▐ ▄"
+    "${BOLD}${BRIGHT_MAGENTA}█▌▄▌▪▀▄ █·▐█ ▀█ █▌▄▌▪▀▄.▀·•█▌▐█"
+    "${BOLD}${BRIGHT_MAGENTA}▐▀▀▄·▐▀▀▄ ▄█▀▀█ ▐▀▀▄·▐▀▀▪▄▐█▐▐▌"
+    "${BOLD}${BRIGHT_MAGENTA}▐█.█▌▐█•█▌▐█ ▪▐▌▐█.█▌▐█▄▄▌██▐█▌"
+    "${BOLD}${BRIGHT_MAGENTA}·▀  ▀.▀  ▀ ▀  ▀ ·▀  ▀ ▀▀▀ ▀▀ █▪"
     ""
+    "${BOLD}${BRIGHT_MAGENTA}╔═══════════════════════════════════════════════════╗${RESET}"
+    "${BOLD}${BRIGHT_MAGENTA}║${RESET}  ${BOLD}${SCRIPT_NAME} v${SCRIPT_VERSION}${RESET}                  ${BRIGHT_MAGENTA}║"
+    "${BRIGHT_MAGENTA}║${RESET}  Creator: ${BRIGHT_CYAN}\e]8;;https://github.com/WhiteMuush\aMelvin PETIT\e]8;;\a${RESET}                            ${BRIGHT_MAGENTA}║"
+    "${BOLD}${BRIGHT_MAGENTA}╚═══════════════════════════════════════════════════╝${RESET}"
     "${BRIGHT_YELLOW}${BOLD}[!]${RESET} ${DIM}Modular Bash framework for automated pentesting${RESET}"
     "${BRIGHT_YELLOW}${BOLD}[!]${RESET} ${DIM}Orchestrates recon, scanning, enumeration & reporting${RESET}"
     ""
     "${BRIGHT_GREEN}${BOLD}[✓]${RESET} ${GREEN}Use only on authorized targets${RESET}"
-    ""
 )
 
 # ============================================================================
 # MENU OPTIONS
 # ============================================================================
 readonly MENU_OPTIONS=(
-    ""
     "${BRIGHT_MAGENTA}╔══════════════ ${BOLD}MAIN MENU${RESET}${BRIGHT_MAGENTA} ══════════════╗${RESET}"
     "${BRIGHT_MAGENTA}║${RESET}"
-    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[1]${RESET} Reconnaissance Module"
+    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[1]${RESET} Reconnaissance Module"           
     "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[2]${RESET} Port Scanning Module"
     "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[3]${RESET} Web Enumeration Module"
     "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[4]${RESET} Vulnerability Assessment"
@@ -999,7 +1002,7 @@ main_loop() {
         display_banner
         display_menu
         
-        read -rp " ${BRIGHT_MAGENTA}$(whoami)@Kraken${RESET}:~${BRIGHT_BLUE}$ ${RESET}" choice
+        read -rp " ${BRIGHT_BLUE}$(whoami)${BRIGHT_MAGENTA}@Kraken${RESET}:~${BRIGHT_BLUE}$ ${RESET}" choice
         echo ""
         
         handle_selection "$choice"
