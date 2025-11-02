@@ -1,67 +1,60 @@
 # Kraken — Pentest Orchestration Framework
 
-Kraken est un framework bash modulaire pour automatiser des tâches courantes de reconnaissance, scan, énumération web et génération de rapports. Conçu pour une utilisation en environnement autorisé uniquement.
+Kraken is a modular bash framework to automate common reconnaissance, scanning, web enumeration and report generation tasks. Designed for use only in authorized environments.
 
-Auteur : Melvin PETIT 
-Version embarquée : 0.1.0
+Author: Melvin PETIT  
+Embedded version: 0.1.0
 
-## Fonctionnalités principales
-- Bannière ASCII et interface TUI simple
-- Modules modulaires :
-    - Reconnaissance (DNS, whois, sous-domaines)
-    - Scan de ports (nmap ou scan bash basique)
-    - Énumération web (headers, directories, robots.txt, détection technologies)
-    - Évaluation basique de vulnérabilités (headers, SSL)
-    - Génération d’un rapport HTML consolidé
-- Enregistrement automatique des résultats dans un répertoire de sortie horodaté
+## Key features
+- ASCII banner and simple TUI
+- Modular modules:
+    - Reconnaissance (DNS, whois, subdomains)
+    - Port scanning (nmap or basic bash scan)
+    - Web enumeration (headers, directories, robots.txt, technology detection)
+    - Basic vulnerability assessment (headers, SSL)
+    - Consolidated HTML report generation
+- Automatic saving of results into a timestamped output directory
 
-## Prérequis
-Outils recommandés (fonctionnalité complète) :
-- bash (obligatoire)
+## Requirements
+Recommended tools (for full functionality):
+- bash (required)
 - nmap
 - curl
-- host (ou nslookup/getent)
+- host (or nslookup/getent)
 - whois
 - openssl
-- subfinder (optionnel pour l’énumération de sous-domaines)
+- subfinder (optional for subdomain enumeration)
 
-Installer les paquets via le gestionnaire de votre distribution si nécessaire.
+Install packages via your distribution package manager as needed.
 
-## Démarrage rapide
-1. Rendre le script exécutable :
-     ```bash
-     chmod +x kraken.sh
-     ```
-2. Lancer Kraken :
-     ```bash
-     ./kraken.sh
-     ```
-3. Utiliser le menu pour choisir un module (Reconnaissance, Scan, Web, Vuln, Report).
+## Quick start
+1. Make the script executable:
+    ```bash
+    chmod +x kraken.sh
+    ```
+2. Run Kraken:
+    ```bash
+    ./kraken.sh
+    ```
+3. Use the menu to choose a module (Recon, Scan, Web, Vuln, Report).
 
-Les résultats sont sauvegardés sous un répertoire créé à l’exécution : `kraken_output_YYYYMMDD_HHMMSS/`.
+Results are saved under a directory created at runtime: `kraken_output_YYYYMMDD_HHMMSS/`.
 
-## Structure de sortie
+## Output structure
 - recon_<target>/ — dns_records.txt, subdomains.txt, whois.txt, ...
-- scan_<target>/ — nmap_quick.txt, nmap_services.txt ou bash_scan.txt
+- scan_<target>/ — nmap_quick.txt, nmap_services.txt or bash_scan.txt
 - web_<target>/ — headers.txt, directories.txt, technologies.txt, robots.txt
 - vuln_<target>/ — ssl_cert.txt, findings.txt
-- kraken_report_<timestamp>.html — rapport HTML consolidé
+- kraken_report_<timestamp>.html — consolidated HTML report
 
-## Configuration & Détection d’outils
-Le script affiche l’état des outils disponibles au démarrage. Kraken fonctionne avec des fonctionnalités réduites si certains outils manquent.
+## Configuration & tool detection
+The script displays the status of available tools at startup. Kraken runs with reduced functionality if some tools are missing.
 
-## Bonnes pratiques & avertissement légal
-- N’utiliser Kraken que sur des cibles dont vous avez l’autorisation explicite.
-- Respecter la loi et les règles d’éthique professionnelle.
-- Ce framework réalise des actions intrusives (scans, requêtes) — tester en environnement contrôlé.
-
-## Contribution
-Suggestions et contributions bienvenues via le dépôt GitHub de l’auteur. Ajouter un fichier LICENSE au dépôt pour préciser les conditions d’utilisation.
-
-## Remarques
-- Le script contient des fonctions et templates CSS/HTML pour générer un rapport lisible.
-- Pour des évaluations approfondies, compléter Kraken avec des outils spécialisés et des workflows de validation manuelle.
+## Best practices & legal warning
+- Only use Kraken against targets for which you have explicit authorization.
+- Respect the law and professional ethical guidelines.
+- This framework performs intrusive actions (scans, requests) — test in a controlled environment.
 
 ---
 
-Kraken fourni un point de départ pratique pour l’orchestration de tâches de pentest automatisées. Adapter et enrichir selon vos besoins et le cadre légal.
+Kraken provides a practical starting point for automating pentest orchestration tasks. Adapt and extend it according to your needs and legal constraints.
