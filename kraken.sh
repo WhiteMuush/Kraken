@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-
-
 set -euo pipefail
 
 # ============================================================================
@@ -31,7 +29,9 @@ readonly BRIGHT_CYAN="$(tput setaf 14)"
 # ============================================================================
 readonly SCRIPT_VERSION="0.1.0"
 readonly SCRIPT_NAME="Kraken Pentest Framework"
-readonly OUTPUT_DIR="kraken_output_$(date +%Y%m%d_%H%M%S)"
+readonly BASE_DIR="kraken_output"
+SESSION_NAME=""
+OUTPUT_DIR="${BASE_DIR}/output"
 
 # ============================================================================
 # ASCII ART BANNER
@@ -1007,6 +1007,154 @@ main_loop() {
 # INITIALIZATION & ENTRY POINT
 # ============================================================================
 
+initialize_session() {
+    clear_screen
+    display_banner
+    
+    echo "${BRIGHT_MAGENTA}${BOLD}╔═══════════════════════════════════════╗${RESET}"
+    echo "${BRIGHT_MAGENTA}${BOLD}║       Session Initialization         ║${RESET}"
+    echo "${BRIGHT_MAGENTA}${BOLD}╚═══════════════════════════════════════╝${RESET}"
+    echo ""
+    
+    # Show existing sessions
+    if [[ -d "$BASE_DIR" ]]; then
+        local existing_sessions=($(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" 2>/dev/null | sort -r))
+        
+        if [[ ${#existing_sessions[@]} -gt 0 ]]; then
+            echo "${BRIGHT_CYAN}Existing sessions:${RESET}"
+            local i=1
+            for session in "${existing_sessions[@]}"; do
+                local size=$(du -sh "$BASE_DIR/$session" 2>/dev/null | cut -f1)
+                local files=$(find "$BASE_DIR/$session" -type f 2>/dev/null | wc -l)
+                echo "  ${DIM}[$i]${RESET} $session ${DIM}($size, $files files)${RESET}"
+                ((i++))
+                
+                # Show max 5 sessions
+                if [[ $i -gt 5 ]]; then
+                    echo "  ${DIM}... and $((${#existing_sessions[@]} - 5)) more${RESET}"
+                    break
+                fi
+            done
+            echo ""
+        fi
+    fi
+    
+    echo "${BRIGHT_YELLOW}Choose session mode:${RESET}"
+    echo ""
+    echo "  ${BRIGHT_CYAN}[1]${RESET} Create new named session (e.g., 'client_acme_web_audit')"
+    echo "  ${BRIGHT_CYAN}[2]${RESET} Continue existing session"
+    echo "  ${BRIGHT_CYAN}[3]${RESET} Auto-generate session name (session_YYYYMMDD_HHMMSS)"
+    echo ""
+    
+    read -rp "${BRIGHT_CYAN}[?]${RESET} Choose option [1]: " session_mode
+    session_mode=${session_mode:-1}
+    
+    case "$session_mode" in
+        1)
+            # Custom session name
+            echo ""
+            echo "${DIM}Tips: Use descriptive names like:${RESET}"
+            echo "${DIM}  - client_acme_initial_scan${RESET}"
+            echo "${DIM}  - webapp_pentest_2025${RESET}"
+            echo "${DIM}  - internal_network_audit${RESET}"
+            echo ""
+            
+            while true; do
+                read -rp "${BRIGHT_CYAN}[?]${RESET} Enter session name: " custom_name
+                
+                # Clean the name (remove spaces, special chars)
+                custom_name=$(echo "$custom_name" | tr ' ' '_' | sed 's/[^a-zA-Z0-9_-]//g')
+                
+                if [[ -z "$custom_name" ]]; then
+                    log_message "error" "Session name cannot be empty"
+                    continue
+                fi
+                
+                # Check if already exists
+                if [[ -d "$BASE_DIR/$custom_name" ]]; then
+                    echo ""
+                    log_message "warning" "Session '$custom_name' already exists"
+                    read -rp "${BRIGHT_YELLOW}[?]${RESET} Continue with existing session? (Y/n): " continue_existing
+                    
+                    if [[ "${continue_existing,,}" != "n" ]]; then
+                        SESSION_NAME="$custom_name"
+                        OUTPUT_DIR="$BASE_DIR/$SESSION_NAME"
+                        log_message "success" "Continuing session: $SESSION_NAME"
+                        break
+                    else
+                        continue
+                    fi
+                else
+                    SESSION_NAME="$custom_name"
+                    OUTPUT_DIR="$BASE_DIR/$SESSION_NAME"
+                    log_message "success" "Created new session: $SESSION_NAME"
+                    break
+                fi
+            done
+            ;;
+        
+        2)
+            # Continue existing session
+            echo ""
+            
+            if [[ ! -d "$BASE_DIR" ]]; then
+                log_message "error" "No existing sessions found"
+                sleep 2
+                initialize_session
+                return
+            fi
+            
+            local sessions=($(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" 2>/dev/null | sort -r))
+            
+            if [[ ${#sessions[@]} -eq 0 ]]; then
+                log_message "error" "No existing sessions found"
+                sleep 2
+                initialize_session
+                return
+            fi
+            
+            echo "${BRIGHT_CYAN}Select session:${RESET}"
+            echo ""
+            
+            local i=1
+            for session in "${sessions[@]}"; do
+                local size=$(du -sh "$BASE_DIR/$session" 2>/dev/null | cut -f1)
+                local files=$(find "$BASE_DIR/$session" -type f 2>/dev/null | wc -l)
+                local date_mod=$(stat -c %y "$BASE_DIR/$session" 2>/dev/null | cut -d' ' -f1)
+                echo "  ${BRIGHT_CYAN}[$i]${RESET} $session"
+                echo "      ${DIM}Size: $size | Files: $files | Modified: $date_mod${RESET}"
+                echo ""
+                ((i++))
+            done
+            
+            read -rp "${BRIGHT_CYAN}[?]${RESET} Choose session number [1]: " session_num
+            session_num=${session_num:-1}
+            
+            if [[ "$session_num" =~ ^[0-9]+$ ]] && [[ $session_num -ge 1 ]] && [[ $session_num -le ${#sessions[@]} ]]; then
+                local idx=$((session_num - 1))
+                SESSION_NAME="${sessions[$idx]}"
+                OUTPUT_DIR="$BASE_DIR/$SESSION_NAME"
+                log_message "success" "Continuing session: $SESSION_NAME"
+            else
+                log_message "error" "Invalid selection"
+                sleep 2
+                initialize_session
+                return
+            fi
+            ;;
+        
+        3|*)
+            # Auto-generate
+            SESSION_NAME="session_$(date +%Y%m%d_%H%M%S)"
+            OUTPUT_DIR="$BASE_DIR/$SESSION_NAME"
+            log_message "success" "Auto-generated session: $SESSION_NAME"
+            ;;
+    esac
+    
+    echo ""
+    sleep 1
+}
+
 # Check dependencies on startup
 check_dependencies() {
     local missing_critical=()
@@ -1051,6 +1199,9 @@ fi
 
 # Check dependencies
 check_dependencies
+
+# Initialize session (ask user for session name)
+initialize_session
 
 # Start main loop
 main_loop
