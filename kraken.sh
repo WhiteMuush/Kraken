@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
-# ============================================================================
-# KRAKEN - Pentest Orchestration Framework
-# ============================================================================
-# Author: Melvin PETIT (https://github.com/WhiteMuush)
-# Architecture: cw_system_sandevistanedgerunner x64
-# Description: Modular framework for automated penetration testing
-# ============================================================================
+
 
 set -euo pipefail
 
