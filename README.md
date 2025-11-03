@@ -1,4 +1,7 @@
-# 🐙 Kraken 
+# 🐙 Kraken ! Are you afraid pirate ?
+
+![pirates-of-the-caribbean-pirates](https://github.com/user-attachments/assets/4e43c7b3-12ba-4e88-98f7-b06a42818a56)
+
 ## Modular Bash Penetration Testing Orchestrator
 
 Kraken is a lightweight, modular, Bash-based framework to orchestrate reconnaissance, scanning, enumeration, and reporting. It focuses on automation, parallel execution, and structured output to speed up assessments while remaining easy to extend.
@@ -68,6 +71,10 @@ Example: run reconnaissance then port-scan (pseudo):
 Each module is designed to be configurable and easily extended with additional tools or custom scripts.
 
 ---
+
+
+<img width="989" height="684" alt="SCRIPT" src="https://github.com/user-attachments/assets/6363c6a6-8cf4-439e-8674-b516cf6876bc" />
+
 
 ## Contributing
 Contributions, issues, and suggestions are welcome.
