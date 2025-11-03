@@ -1,7 +1,7 @@
-# 🐙 Kraken ! Are you afraid pirate ?
+# 🐙 Kraken ! 
+## Are you afraid pirate ?
 
 <img width="989" height="684" alt="SCRIPT" src="https://github.com/user-attachments/assets/6363c6a6-8cf4-439e-8674-b516cf6876bc" />
-
 
 ## Modular Bash Penetration Testing Orchestrator
 
@@ -40,11 +40,21 @@ Tip: Run with --help to see available flags and module options:
 ---
 
 ## Requirements
-Install only the tools you need for your workflow. Common examples:
-- amass, subfinder, dnsenum, theHarvester
-- nmap, masscan
-- ffuf, gobuster, wapiti, nikto
-- nuclei, sslyze, wpscan
+Install only the tools you need for your workflow. Common examples (with GitHub links):
+
+- Amass — https://github.com/owasp-amass/amass
+- Subfinder — https://github.com/projectdiscovery/subfinder
+- dnsenum — https://github.com/fwaeytens/dnsenum
+- theHarvester — https://github.com/laramies/theHarvester
+- Nmap — https://github.com/nmap/nmap
+- Masscan — https://github.com/robertdavidgraham/masscan
+- ffuf — https://github.com/ffuf/ffuf
+- Gobuster — https://github.com/OJ/gobuster
+- Wapiti — https://github.com/wapiti-scanner/wapiti
+- Nikto — https://github.com/sullo/nikto
+- Nuclei — https://github.com/projectdiscovery/nuclei
+- SSLyze — https://github.com/nabla-c0d3/sslyze
+- WPScan — https://github.com/wpscanteam/wpscan
 
 (Install via your distro package manager or their official installers.)
 
@@ -63,7 +73,7 @@ Example: run reconnaissance then port-scan (pseudo):
 ---
 
 ## Core modules
-1. Reconnaissance — subdomains, hosts, DNS discovery (Amass, Subfinder, DNSenum, theHarvester)
+1. Reconnaissance — subdomains, hosts, DNS discovery (Amass, Subfinder, dnsenum, theHarvester)
 2. Port Scanning — fast & detailed scans (Nmap, Masscan)
 3. Web Enumeration — directories, tech discovery (ffuf, Gobuster, Wapiti, Nikto)
 4. Vulnerability Assessment — pattern/scan-based checks (Nuclei, SSLyze, WPScan)
@@ -102,4 +112,5 @@ For educational and authorized security testing only. The author and maintainers
 Linktree: https://linktr.ee/melvinpetit
 Repo: https://github.com/WhiteMuush/kraken
 
-Enjoy — and test responsibly.
+Enjoy — and test responsibly. ❤️
+
