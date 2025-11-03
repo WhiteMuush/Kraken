@@ -1,60 +1,97 @@
-# Kraken — Pentest Orchestration Framework
+# 🐙 Kraken — Modular Bash Penetration Testing Orchestrator
 
-Kraken is a modular bash framework to automate common reconnaissance, scanning, web enumeration and report generation tasks. Designed for use only in authorized environments.
-
-Author: Melvin PETIT  
-Embedded version: 0.1.0
-
-## Key features
-- ASCII banner and simple TUI
-- Modular modules:
-    - Reconnaissance (DNS, whois, subdomains)
-    - Port scanning (nmap or basic bash scan)
-    - Web enumeration (headers, directories, robots.txt, technology detection)
-    - Basic vulnerability assessment (headers, SSL)
-    - Consolidated HTML report generation
-- Automatic saving of results into a timestamped output directory
-
-## Requirements
-Recommended tools (for full functionality):
-- bash (required)
-- nmap
-- curl
-- host (or nslookup/getent)
-- whois
-- openssl
-- subfinder (optional for subdomain enumeration)
-
-Install packages via your distribution package manager as needed.
-
-## Quick start
-1. Make the script executable:
-    ```bash
-    chmod +x kraken.sh
-    ```
-2. Run Kraken:
-    ```bash
-    ./kraken.sh
-    ```
-3. Use the menu to choose a module (Recon, Scan, Web, Vuln, Report).
-
-Results are saved under a directory created at runtime: `kraken_output_YYYYMMDD_HHMMSS/`.
-
-## Output structure
-- recon_<target>/ — dns_records.txt, subdomains.txt, whois.txt, ...
-- scan_<target>/ — nmap_quick.txt, nmap_services.txt or bash_scan.txt
-- web_<target>/ — headers.txt, directories.txt, technologies.txt, robots.txt
-- vuln_<target>/ — ssl_cert.txt, findings.txt
-- kraken_report_<timestamp>.html — consolidated HTML report
-
-## Configuration & tool detection
-The script displays the status of available tools at startup. Kraken runs with reduced functionality if some tools are missing.
-
-## Best practices & legal warning
-- Only use Kraken against targets for which you have explicit authorization.
-- Respect the law and professional ethical guidelines.
-- This framework performs intrusive actions (scans, requests) — test in a controlled environment.
+Kraken is a lightweight, modular, Bash-based framework to orchestrate reconnaissance, scanning, enumeration, and reporting. It focuses on automation, parallel execution, and structured output to speed up assessments while remaining easy to extend.
 
 ---
 
-Kraken provides a practical starting point for automating pentest orchestration tasks. Adapt and extend it according to your needs and legal constraints.
+## Overview
+- Modular "tentacles": each module is independent and replaceable.
+- Automation-first: chain tools and tasks into reproducible workflows.
+- Lightweight: pure Bash, minimal dependencies.
+- Parallel execution and structured output for faster, clearer results.
+
+---
+
+## Quick start
+
+Prerequisites:
+- Bash (>= 4.0)
+- sudo access for some modules
+- Recommended: git, curl/wget, and the tools you plan to use (see Requirements)
+
+Clone, install and run:
+```bash
+git clone https://github.com/WhiteMuush/kraken.git
+cd kraken
+chmod +x kraken.sh
+sudo bash kraken.sh
+```
+
+Tip: Run with --help to see available flags and module options:
+```bash
+./kraken.sh --help
+```
+
+---
+
+## Requirements
+Install only the tools you need for your workflow. Common examples:
+- amass, subfinder, dnsenum, theHarvester
+- nmap, masscan
+- ffuf, gobuster, wapiti, nikto
+- nuclei, sslyze, wpscan
+
+(Install via your distro package manager or their official installers.)
+
+---
+
+## Usage
+- Start an interactive session: sudo bash kraken.sh
+- Run a single module or chain modules via CLI options (see --help)
+- Output, logs, and state files are saved under the project's output/ directory for easy reporting and review
+
+Example: run reconnaissance then port-scan (pseudo):
+```bash
+./kraken.sh --modules recon,ports --target example.com
+```
+
+---
+
+## Core modules
+1. Reconnaissance — subdomains, hosts, DNS discovery (Amass, Subfinder, DNSenum, theHarvester)
+2. Port Scanning — fast & detailed scans (Nmap, Masscan)
+3. Web Enumeration — directories, tech discovery (ffuf, Gobuster, Wapiti, Nikto)
+4. Vulnerability Assessment — pattern/scan-based checks (Nuclei, SSLyze, WPScan)
+5. Reporting — structured export of findings, logs and state
+
+Each module is designed to be configurable and easily extended with additional tools or custom scripts.
+
+---
+
+## Contributing
+Contributions, issues, and suggestions are welcome.
+- Fork the repo
+- Create a feature branch
+- Add tests/documentation where applicable
+- Open a pull request with a clear description
+
+Follow responsible disclosure and avoid including sensitive data in PRs.
+
+---
+
+## License
+MIT License — feel free to use, modify, and distribute. Please retain attribution:
+Melvin PETIT / WhiteMuush
+
+---
+
+## ⚠️ Disclaimer
+For educational and authorized security testing only. The author and maintainers are not responsible for misuse. Always obtain explicit permission before testing systems you do not own.
+
+---
+
+## Links & Contact
+Linktree: https://linktr.ee/melvinpetit
+Repo: https://github.com/WhiteMuush/kraken
+
+Enjoy — and test responsibly.
