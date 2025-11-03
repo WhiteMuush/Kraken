@@ -1,6 +1,7 @@
 # 🐙 Kraken ! Are you afraid pirate ?
 
-![pirates-of-the-caribbean-pirates](https://github.com/user-attachments/assets/4e43c7b3-12ba-4e88-98f7-b06a42818a56)
+<img width="989" height="684" alt="SCRIPT" src="https://github.com/user-attachments/assets/6363c6a6-8cf4-439e-8674-b516cf6876bc" />
+
 
 ## Modular Bash Penetration Testing Orchestrator
 
@@ -72,8 +73,7 @@ Each module is designed to be configurable and easily extended with additional t
 
 ---
 
-
-<img width="989" height="684" alt="SCRIPT" src="https://github.com/user-attachments/assets/6363c6a6-8cf4-439e-8674-b516cf6876bc" />
+![uploads_image_UpYqysOocl0kfb3eg874MhJNanIWPi_Krakengif](https://github.com/user-attachments/assets/3ce767ad-ea92-46a0-aee5-997fddabf5f1)
 
 
 ## Contributing
