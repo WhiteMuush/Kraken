@@ -1,0 +1,41 @@
+# Kraken requirements (install only what you need)
+# Requires: Bash >= 4.0, sudo for some modules
+
+# Core system tooling
+bash>=4.0
+git
+curl
+wget
+jq
+parallel
+
+# Language runtimes (for building/installing some tools)
+go
+rust
+python3
+
+# Recon / subdomain discovery
+amass
+subfinder
+dnsenum
+theHarvester
+
+# Port scanning
+nmap
+masscan
+
+# Web enumeration / fuzzing
+ffuf
+gobuster
+wapiti
+nikto
+
+# Vulnerability scanners
+nuclei
+sslyze
+wpscan
+
+# Notes:
+# - Install via your distro package manager, snap, or each tool's official installer.
+# - Many Go/Rust tools are installed via `go install` / Cargo; keep PATH updated (GOBIN/GOPATH).
+# - Python-based tools may require pip packages; they aren't included here unless used.
