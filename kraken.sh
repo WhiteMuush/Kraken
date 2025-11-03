@@ -571,7 +571,7 @@ module_vuln() {
 
 module_report() {
     clear_screen
-    log_message "info" "Generating comprehensive report..."
+    log_message "info" "Generating session report..."
     echo ""
     
     if [[ ! -d "$OUTPUT_DIR" ]]; then
@@ -580,335 +580,37 @@ module_report() {
         return
     fi
     
-    local report_file="$OUTPUT_DIR/kraken_report_$(date +%Y%m%d_%H%M%S).html"
+    local report_file="$OUTPUT_DIR/REPORT_$(date +%Y%m%d_%H%M%S).txt"
     
     log_message "info" "Collecting scan data..."
     
-    # Generate HTML report
-    cat > "$report_file" << 'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Kraken Pentest Report</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
-            color: #333;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            overflow: hidden;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px;
-            text-align: center;
-        }
-        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
-        .header p { opacity: 0.9; }
-        .content { padding: 40px; }
-        .section {
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            border-radius: 5px;
-        }
-        .section h2 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 1.5em;
-        }
-        .finding {
-            padding: 15px;
-            background: white;
-            margin: 10px 0;
-            border-radius: 5px;
-            border-left: 3px solid #28a745;
-        }
-        .finding.critical { border-left-color: #dc3545; }
-        .finding.high { border-left-color: #fd7e14; }
-        .finding.medium { border-left-color: #ffc107; }
-        .finding.low { border-left-color: #17a2b8; }
-        .finding.info { border-left-color: #6c757d; }
-        .badge {
-            display: inline-block;
-            padding: 5px 10px;
-            border-radius: 3px;
-            font-size: 0.85em;
-            font-weight: bold;
-            margin-right: 10px;
-        }
-        .badge.critical { background: #dc3545; color: white; }
-        .badge.high { background: #fd7e14; color: white; }
-        .badge.medium { background: #ffc107; color: #333; }
-        .badge.low { background: #17a2b8; color: white; }
-        .badge.info { background: #6c757d; color: white; }
-        pre {
-            background: #2d2d2d;
-            color: #f8f8f2;
-            padding: 15px;
-            border-radius: 5px;
-            overflow-x: auto;
-            font-size: 0.9em;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        }
-        .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .stat-card .number {
-            font-size: 2.5em;
-            font-weight: bold;
-            color: #667eea;
-        }
-        .stat-card .label {
-            color: #6c757d;
-            margin-top: 10px;
-        }
-        .footer {
-            background: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            color: #6c757d;
-            border-top: 1px solid #dee2e6;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 15px 0;
-            background: white;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #dee2e6;
-        }
-        th {
-            background: #667eea;
-            color: white;
-            font-weight: 600;
-        }
-        tr:hover { background: #f8f9fa; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🐙 Kraken Pentest Report</h1>
-            <p>Generated on DATE_PLACEHOLDER</p>
-            <p>Operator: USER_PLACEHOLDER</p>
-        </div>
+    # Generate text report
+    {
+        echo "=========================================="
+        echo "    KRAKEN PENTEST REPORT"
+        echo "=========================================="
+        echo ""
+        echo "Generated: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "Operator: $(whoami)@$(hostname)"
+        echo "Session: $SESSION_NAME"
+        echo ""
+        echo "=========================================="
+        echo "    EXECUTIVE SUMMARY"
+        echo "=========================================="
+        echo ""
         
-        <div class="content">
-            <div class="section">
-                <h2>Executive Summary</h2>
-                <div class="stats">
-                    <div class="stat-card">
-                        <div class="number" id="total-findings">0</div>
-                        <div class="label">Total Findings</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="number" id="hosts-scanned">0</div>
-                        <div class="label">Hosts Scanned</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="number" id="ports-found">0</div>
-                        <div class="label">Open Ports</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="number" id="vulnerabilities">0</div>
-                        <div class="label">Vulnerabilities</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="section">
-                <h2>Scope</h2>
-                <p><strong>Target(s):</strong> TARGETS_PLACEHOLDER</p>
-                <p><strong>Output Directory:</strong> <code>OUTPUT_DIR_PLACEHOLDER</code></p>
-            </div>
-
-            <div class="section">
-                <h2>Reconnaissance Results</h2>
-                RECON_RESULTS_PLACEHOLDER
-            </div>
-
-            <div class="section">
-                <h2>Port Scanning Results</h2>
-                SCAN_RESULTS_PLACEHOLDER
-            </div>
-
-            <div class="section">
-                <h2>Web Enumeration Results</h2>
-                WEB_RESULTS_PLACEHOLDER
-            </div>
-
-            <div class="section">
-                <h2>Vulnerability Assessment</h2>
-                VULN_RESULTS_PLACEHOLDER
-            </div>
-
-            <div class="section">
-                <h2>Recommendations</h2>
-                <ul>
-                    <li>Review and patch all identified vulnerabilities</li>
-                    <li>Implement missing security headers</li>
-                    <li>Disable unnecessary services and ports</li>
-                    <li>Regular security audits and penetration testing</li>
-                    <li>Keep all systems and software up to date</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="footer">
-            <p>Generated by <strong>Kraken Pentest Framework v1.0.0</strong></p>
-            <p>For authorized security testing only</p>
-        </div>
-    </div>
-</body>
-</html>
-EOF
-
-    # Replace placeholders
-    sed -i "s|DATE_PLACEHOLDER|$(date '+%Y-%m-%d %H:%M:%S')|g" "$report_file"
-    sed -i "s|USER_PLACEHOLDER|$(whoami)|g" "$report_file"
-    sed -i "s|OUTPUT_DIR_PLACEHOLDER|$OUTPUT_DIR|g" "$report_file"
-    
-    # Collect targets
-    local targets=$(find "$OUTPUT_DIR" -type d -name "recon_*" -o -name "scan_*" -o -name "web_*" | \
-                    sed 's|.*/[^_]*_||' | sort -u | tr '\n' ', ' | sed 's/,$//')
-    sed -i "s|TARGETS_PLACEHOLDER|${targets:-None}|g" "$report_file"
-    
-    # Process recon results
-    local recon_html="<p>No reconnaissance data found.</p>"
-    if ls "$OUTPUT_DIR"/recon_* &>/dev/null; then
-        recon_html="<table><tr><th>Target</th><th>Subdomains</th><th>DNS Records</th></tr>"
-        for dir in "$OUTPUT_DIR"/recon_*; do
-            local target=$(basename "$dir" | sed 's/recon_//')
-            local sub_count="N/A"
-            local dns_count="N/A"
-            
-            [[ -f "$dir/subdomains.txt" ]] && sub_count=$(wc -l < "$dir/subdomains.txt")
-            [[ -f "$dir/dns_records.txt" ]] && dns_count=$(grep -c "===" "$dir/dns_records.txt" || echo "N/A")
-            
-            recon_html+="<tr><td>$target</td><td>$sub_count</td><td>$dns_count</td></tr>"
-        done
-        recon_html+="</table>"
-    fi
-    sed -i "s|RECON_RESULTS_PLACEHOLDER|$recon_html|g" "$report_file"
-    
-    # Process scan results
-    local scan_html="<p>No port scan data found.</p>"
-    if ls "$OUTPUT_DIR"/scan_* &>/dev/null; then
-        scan_html="<table><tr><th>Target</th><th>Open Ports</th><th>Services</th></tr>"
-        for dir in "$OUTPUT_DIR"/scan_*; do
-            local target=$(basename "$dir" | sed 's/scan_//')
-            local port_count=0
-            local services=""
-            
-            if [[ -f "$dir/nmap_services.txt" ]]; then
-                port_count=$(grep -c "open" "$dir/nmap_services.txt" 2>/dev/null || echo 0)
-                services=$(grep "open" "$dir/nmap_services.txt" | head -3 | awk '{print $1}' | tr '\n' ', ' | sed 's/,$//')
-            elif [[ -f "$dir/bash_scan.txt" ]]; then
-                port_count=$(wc -l < "$dir/bash_scan.txt")
-                services=$(cut -d: -f1 "$dir/bash_scan.txt" | tr '\n' ', ' | sed 's/,$//')
-            fi
-            
-            scan_html+="<tr><td>$target</td><td>$port_count</td><td>${services:-None}</td></tr>"
-        done
-        scan_html+="</table>"
-    fi
-    sed -i "s|SCAN_RESULTS_PLACEHOLDER|$scan_html|g" "$report_file"
-    
-    # Process web results
-    local web_html="<p>No web enumeration data found.</p>"
-    if ls "$OUTPUT_DIR"/web_* &>/dev/null; then
-        web_html="<table><tr><th>Target</th><th>HTTP Status</th><th>Directories Found</th></tr>"
-        for dir in "$OUTPUT_DIR"/web_*; do
-            local target=$(basename "$dir" | sed 's/web_//')
-            local status="N/A"
-            local dir_count=0
-            
-            [[ -f "$dir/headers.txt" ]] && status=$(head -1 "$dir/headers.txt" | awk '{print $2}')
-            [[ -f "$dir/directories.txt" ]] && dir_count=$(grep -c "FOUND:" "$dir/directories.txt" 2>/dev/null || echo 0)
-            
-            web_html+="<tr><td>$target</td><td>$status</td><td>$dir_count</td></tr>"
-        done
-        web_html+="</table>"
-    fi
-    sed -i "s|WEB_RESULTS_PLACEHOLDER|$web_html|g" "$report_file"
-    
-    # Process vulnerability results
-    local vuln_html="<p>No vulnerability assessment data found.</p>"
-    if ls "$OUTPUT_DIR"/vuln_* &>/dev/null; then
-        vuln_html=""
-        for dir in "$OUTPUT_DIR"/vuln_*; do
-            local target=$(basename "$dir" | sed 's/vuln_//')
-            vuln_html+="<h3>Target: $target</h3>"
-            
-            if [[ -f "$dir/findings.txt" ]]; then
-                vuln_html+="<div class='finding medium'>"
-                vuln_html+="<span class='badge medium'>MEDIUM</span>"
-                vuln_html+="<strong>Security Findings:</strong><br>"
-                vuln_html+="<pre>$(cat "$dir/findings.txt" | head -20)</pre>"
-                vuln_html+="</div>"
-            else
-                vuln_html+="<p>No findings recorded.</p>"
-            fi
-        done
-    fi
-    sed -i "s|VULN_RESULTS_PLACEHOLDER|$vuln_html|g" "$report_file"
-    
-    # Update statistics
-    local total_findings=$(find "$OUTPUT_DIR" -name "findings.txt" -exec wc -l {} + 2>/dev/null | tail -1 | awk '{print $1}' || echo 0)
-    local hosts_scanned=$(find "$OUTPUT_DIR" -type d \( -name "recon_*" -o -name "scan_*" \) | wc -l)
-    local ports_found=$(find "$OUTPUT_DIR" -name "*scan*.txt" -exec grep -h "open" {} + 2>/dev/null | wc -l || echo 0)
-    
-    sed -i "s|<div class=\"number\" id=\"total-findings\">0</div>|<div class=\"number\" id=\"total-findings\">$total_findings</div>|g" "$report_file"
-    sed -i "s|<div class=\"number\" id=\"hosts-scanned\">0</div>|<div class=\"number\" id=\"hosts-scanned\">$hosts_scanned</div>|g" "$report_file"
-    sed -i "s|<div class=\"number\" id=\"ports-found\">0</div>|<div class=\"number\" id=\"ports-found\">$ports_found</div>|g" "$report_file"
-    sed -i "s|<div class=\"number\" id=\"vulnerabilities\">0</div>|<div class=\"number\" id=\"vulnerabilities\">$total_findings</div>|g" "$report_file"
-    
-    log_message "success" "HTML report generated!"
-    echo ""
-    echo "${BRIGHT_GREEN}Report saved to:${RESET}"
-    echo "  ${BRIGHT_BLUE}$report_file${RESET}"
-    echo ""
-    
-    # Offer to open in browser
-    read -rp "${BRIGHT_CYAN}[?]${RESET} Open report in browser? (y/N): " open_browser
-    if [[ "${open_browser,,}" == "y" ]]; then
-        if command_exists xdg-open; then
-            xdg-open "$report_file" &>/dev/null &
-        elif command_exists open; then
-            open "$report_file" &>/dev/null &
-        elif command_exists firefox; then
-            firefox "$report_file" &>/dev/null &
-        else
-            log_message "warning" "Could not detect browser. Open manually: $report_file"
-        fi
-    fi
-    
-    echo ""
-    read -rp "${DIM}Press Enter to continue...${RESET}"
+        # Statistics
+        local total_findings=$(find "$OUTPUT_DIR" -name "findings.txt" -exec wc -l {} + 2>/dev/null | tail -1 | awk '{print $1}' || echo 0)
+        local hosts_scanned=$(find "$OUTPUT_DIR" -type d \( -name "recon_*" -o -name "scan_*" \) | wc -l || echo 0)
+        echo "Total Hosts Scanned : $hosts_scanned"
+        echo "Total Findings      : $total_findings"
+        echo ""
+        echo "=========================================="
+        echo "    DETAILED FINDINGS"
+        echo "=========================================="
+        echo ""
+        find "$OUTPUT_DIR" -name "findings.txt" -exec echo "---- Findings from: {} ----" \; -exec cat {} \; -exec echo "" \;
+    } > "$report_file"
 }
 
 show_config() {
@@ -1012,7 +714,7 @@ initialize_session() {
     display_banner
     
     echo "${BRIGHT_MAGENTA}${BOLD}╔═══════════════════════════════════════╗${RESET}"
-    echo "${BRIGHT_MAGENTA}${BOLD}║       Session Initialization         ║${RESET}"
+    echo "${BRIGHT_MAGENTA}${BOLD}║       Session Initialization          ║${RESET}"
     echo "${BRIGHT_MAGENTA}${BOLD}╚═══════════════════════════════════════╝${RESET}"
     echo ""
     
