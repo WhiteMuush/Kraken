@@ -1,4 +1,5 @@
-# 🐙 Kraken — Modular Bash Penetration Testing Orchestrator
+# 🐙 Kraken 
+## Modular Bash Penetration Testing Orchestrator
 
 Kraken is a lightweight, modular, Bash-based framework to orchestrate reconnaissance, scanning, enumeration, and reporting. It focuses on automation, parallel execution, and structured output to speed up assessments while remaining easy to extend.
 
