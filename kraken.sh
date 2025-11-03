@@ -27,11 +27,11 @@ readonly BRIGHT_CYAN="$(tput setaf 14)"
 # ============================================================================
 # GLOBAL VARIABLES
 # ============================================================================
-readonly SCRIPT_VERSION="0.1.0"
+readonly SCRIPT_VERSION="0.9.0"
 readonly SCRIPT_NAME="Kraken Pentest Framework"
 readonly BASE_DIR="kraken_output"
 SESSION_NAME=""
-OUTPUT_DIR="${BASE_DIR}/output"
+OUTPUT_DIR=""
 
 # ============================================================================
 # ASCII ART BANNER
@@ -83,7 +83,7 @@ readonly MENU_OPTIONS=(
     "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[2]${RESET} Port Scanning Module"
     "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[3]${RESET} Web Enumeration Module"
     "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[4]${RESET} Vulnerability Assessment"
-    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[5]${RESET} Report Generation"
+    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[5]${RESET} Generate Report"
     "${BRIGHT_MAGENTA}║${RESET}"
     "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_YELLOW}[C]${RESET} Configuration"
     "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_RED}[Q]${RESET} Quit"
@@ -601,16 +601,219 @@ module_report() {
         
         # Statistics
         local total_findings=$(find "$OUTPUT_DIR" -name "findings.txt" -exec wc -l {} + 2>/dev/null | tail -1 | awk '{print $1}' || echo 0)
-        local hosts_scanned=$(find "$OUTPUT_DIR" -type d \( -name "recon_*" -o -name "scan_*" \) | wc -l || echo 0)
-        echo "Total Hosts Scanned : $hosts_scanned"
-        echo "Total Findings      : $total_findings"
+        local hosts_scanned=$(find "$OUTPUT_DIR" -type d \( -name "recon_*" -o -name "scan_*" \) | wc -l)
+        local ports_found=$(find "$OUTPUT_DIR" -name "*scan*.txt" -exec grep -h "open" {} + 2>/dev/null | wc -l || echo 0)
+        local targets=$(find "$OUTPUT_DIR" -type d -name "recon_*" -o -name "scan_*" -o -name "web_*" | \
+                        sed 's|.*/[^_]*_||' | sort -u | tr '\n' ', ' | sed 's/,$//')
+        
+        echo "Total Findings    : $total_findings"
+        echo "Hosts Scanned     : $hosts_scanned"
+        echo "Open Ports Found  : $ports_found"
+        echo "Vulnerabilities   : $total_findings"
         echo ""
         echo "=========================================="
-        echo "    DETAILED FINDINGS"
+        echo "    SCOPE"
         echo "=========================================="
         echo ""
-        find "$OUTPUT_DIR" -name "findings.txt" -exec echo "---- Findings from: {} ----" \; -exec cat {} \; -exec echo "" \;
+        echo "Target(s): ${targets:-None}"
+        echo "Output Directory: $OUTPUT_DIR"
+        echo ""
+        
+        # Reconnaissance Results
+        echo "=========================================="
+        echo "    RECONNAISSANCE RESULTS"
+        echo "=========================================="
+        echo ""
+        
+        if ls "$OUTPUT_DIR"/recon_* &>/dev/null; then
+            for dir in "$OUTPUT_DIR"/recon_*; do
+                local target=$(basename "$dir" | sed 's/recon_//')
+                echo "Target: $target"
+                echo "----------------------------------------"
+                
+                if [[ -f "$dir/subdomains.txt" ]]; then
+                    local sub_count=$(wc -l < "$dir/subdomains.txt")
+                    echo "  Subdomains found: $sub_count"
+                    if [[ $sub_count -gt 0 ]]; then
+                        echo "  Top 10 subdomains:"
+                        head -10 "$dir/subdomains.txt" | sed 's/^/    - /'
+                    fi
+                fi
+                
+                if [[ -f "$dir/dns_records.txt" ]]; then
+                    echo "  DNS Records:"
+                    grep -A2 "===" "$dir/dns_records.txt" | sed 's/^/    /'
+                fi
+                
+                echo ""
+            done
+        else
+            echo "No reconnaissance data found."
+            echo ""
+        fi
+        
+        # Port Scanning Results
+        echo "=========================================="
+        echo "    PORT SCANNING RESULTS"
+        echo "=========================================="
+        echo ""
+        
+        if ls "$OUTPUT_DIR"/scan_* &>/dev/null; then
+            for dir in "$OUTPUT_DIR"/scan_*; do
+                local target=$(basename "$dir" | sed 's/scan_//')
+                echo "Target: $target"
+                echo "----------------------------------------"
+                
+                if [[ -f "$dir/nmap_services.txt" ]]; then
+                    local port_count=$(grep -c "open" "$dir/nmap_services.txt" 2>/dev/null || echo 0)
+                    echo "  Open ports: $port_count"
+                    echo ""
+                    echo "  Services detected:"
+                    grep "open" "$dir/nmap_services.txt" | sed 's/^/    /'
+                elif [[ -f "$dir/bash_scan.txt" ]]; then
+                    local port_count=$(wc -l < "$dir/bash_scan.txt")
+                    echo "  Open ports: $port_count"
+                    echo ""
+                    cat "$dir/bash_scan.txt" | sed 's/^/    /'
+                else
+                    echo "  No scan data available"
+                fi
+                
+                echo ""
+            done
+        else
+            echo "No port scan data found."
+            echo ""
+        fi
+        
+        # Web Enumeration Results
+        echo "=========================================="
+        echo "    WEB ENUMERATION RESULTS"
+        echo "=========================================="
+        echo ""
+        
+        if ls "$OUTPUT_DIR"/web_* &>/dev/null; then
+            for dir in "$OUTPUT_DIR"/web_*; do
+                local target=$(basename "$dir" | sed 's/web_//' | tr '_' '/')
+                echo "Target: $target"
+                echo "----------------------------------------"
+                
+                if [[ -f "$dir/headers.txt" ]]; then
+                    local status=$(head -1 "$dir/headers.txt" | awk '{print $2}')
+                    echo "  HTTP Status: $status"
+                fi
+                
+                if [[ -f "$dir/directories.txt" ]]; then
+                    local dir_count=$(grep -c "FOUND:" "$dir/directories.txt" 2>/dev/null || echo 0)
+                    echo "  Directories found: $dir_count"
+                    
+                    if [[ $dir_count -gt 0 ]]; then
+                        echo ""
+                        echo "  Discovered paths:"
+                        grep "FOUND:\|FORBIDDEN:\|AUTH:" "$dir/directories.txt" | sed 's/^/    /'
+                    fi
+                fi
+                
+                if [[ -f "$dir/technologies.txt" ]]; then
+                    echo ""
+                    echo "  Technologies:"
+                    cat "$dir/technologies.txt" | grep -v "^#" | grep -v "^$" | sed 's/^/    /'
+                fi
+                
+                echo ""
+            done
+        else
+            echo "No web enumeration data found."
+            echo ""
+        fi
+        
+        # Vulnerability Assessment Results
+        echo "=========================================="
+        echo "    VULNERABILITY ASSESSMENT"
+        echo "=========================================="
+        echo ""
+        
+        if ls "$OUTPUT_DIR"/vuln_* &>/dev/null; then
+            for dir in "$OUTPUT_DIR"/vuln_*; do
+                local target=$(basename "$dir" | sed 's/vuln_//')
+                echo "Target: $target"
+                echo "----------------------------------------"
+                
+                if [[ -f "$dir/findings.txt" ]]; then
+                    cat "$dir/findings.txt" | grep -v "^#" | sed 's/^/  /'
+                else
+                    echo "  No findings recorded"
+                fi
+                
+                echo ""
+            done
+        else
+            echo "No vulnerability assessment data found."
+            echo ""
+        fi
+        
+        # Recommendations
+        echo "=========================================="
+        echo "    RECOMMENDATIONS"
+        echo "=========================================="
+        echo ""
+        echo "1. Review and patch all identified vulnerabilities"
+        echo "   - Prioritize critical and high-severity findings"
+        echo "   - Apply security patches promptly"
+        echo ""
+        echo "2. Implement missing security headers"
+        echo "   - X-Frame-Options"
+        echo "   - Content-Security-Policy"
+        echo "   - Strict-Transport-Security"
+        echo ""
+        echo "3. Disable unnecessary services and ports"
+        echo "   - Close unused ports"
+        echo "   - Remove or disable unnecessary services"
+        echo ""
+        echo "4. Regular security audits"
+        echo "   - Conduct periodic penetration testing"
+        echo "   - Implement continuous security monitoring"
+        echo ""
+        echo "5. Keep systems updated"
+        echo "   - Apply security patches regularly"
+        echo "   - Update all software and dependencies"
+        echo ""
+        echo "=========================================="
+        echo "    END OF REPORT"
+        echo "=========================================="
+        echo ""
+        echo "Report generated by: Kraken Pentest Framework v$SCRIPT_VERSION"
+        echo "For authorized security testing only"
+        echo ""
+        
     } > "$report_file"
+    
+    log_message "success" "Report generated!"
+    echo ""
+    echo "${BRIGHT_GREEN}Report saved to:${RESET}"
+    echo "  ${BRIGHT_BLUE}$report_file${RESET}"
+    echo ""
+    
+    # Offer to view report
+    read -rp "${BRIGHT_CYAN}[?]${RESET} View report now? (y/N): " view_now
+    if [[ "${view_now,,}" == "y" ]]; then
+        echo ""
+        print_separator "="
+        
+        if command_exists less; then
+            less "$report_file"
+        else
+            cat "$report_file"
+        fi
+    fi
+    
+    echo ""
+    echo "${DIM}View report with:${RESET}"
+    echo "  ${BRIGHT_CYAN}cat $report_file${RESET}"
+    echo "  ${BRIGHT_CYAN}less $report_file${RESET}"
+    echo "  ${BRIGHT_CYAN}nano $report_file${RESET}"
+    echo ""
+    read -rp "${DIM}Press Enter to continue...${RESET}"
 }
 
 show_config() {
@@ -624,7 +827,19 @@ show_config() {
     echo "  Script Version    : ${BRIGHT_BLUE}$SCRIPT_VERSION${RESET}"
     echo "  Current User      : ${BRIGHT_BLUE}$(whoami)${RESET}"
     echo "  Working Directory : ${BRIGHT_BLUE}$(pwd)${RESET}"
+    echo ""
+    
+    echo "${BRIGHT_CYAN}Current Session:${RESET}"
+    echo "  Session Name      : ${BRIGHT_GREEN}${BOLD}$SESSION_NAME${RESET}"
     echo "  Output Directory  : ${BRIGHT_BLUE}$OUTPUT_DIR${RESET}"
+    
+    if [[ -d "$OUTPUT_DIR" ]]; then
+        local file_count=$(find "$OUTPUT_DIR" -type f 2>/dev/null | wc -l)
+        local scan_count=$(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+        echo "  Scans Performed   : ${BRIGHT_BLUE}$scan_count${RESET}"
+        echo "  Files Created     : ${BRIGHT_BLUE}$file_count${RESET}"
+        echo "  Session Size      : ${BRIGHT_BLUE}$(du -sh "$OUTPUT_DIR" 2>/dev/null | cut -f1)${RESET}"
+    fi
     echo ""
     
     echo "${BRIGHT_CYAN}Available Tools:${RESET}"
@@ -644,11 +859,11 @@ show_config() {
     echo "  Shell             : ${BRIGHT_BLUE}$SHELL${RESET}"
     echo ""
     
-    if [[ -d "$OUTPUT_DIR" ]]; then
-        echo "${BRIGHT_CYAN}Current Session:${RESET}"
-        local scan_count=$(find "$OUTPUT_DIR" -type d -maxdepth 1 | wc -l)
-        echo "  Scans Performed   : ${BRIGHT_BLUE}$((scan_count - 1))${RESET}"
-        echo "  Total Size        : ${BRIGHT_BLUE}$(du -sh "$OUTPUT_DIR" 2>/dev/null | cut -f1)${RESET}"
+    if [[ -d "$BASE_DIR" ]]; then
+        echo "${BRIGHT_CYAN}Storage:${RESET}"
+        local session_count=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+        echo "  Total Sessions    : ${BRIGHT_BLUE}$session_count${RESET}"
+        echo "  Total Size        : ${BRIGHT_BLUE}$(du -sh "$BASE_DIR" 2>/dev/null | cut -f1)${RESET}"
     fi
     
     echo ""
@@ -698,6 +913,9 @@ main_loop() {
         display_banner
         display_menu
         
+        # Show current session in prompt
+        echo "${DIM}Current session: ${BRIGHT_GREEN}$SESSION_NAME${RESET}"
+        echo ""
         read -rp " ${BRIGHT_BLUE}$(whoami)${BRIGHT_MAGENTA}@Kraken${RESET}:~${BRIGHT_BLUE}$ ${RESET}" choice
         echo ""
         
@@ -861,12 +1079,6 @@ initialize_session() {
 check_dependencies() {
     local missing_critical=()
     
-    # Check for absolutely required tools
-    if ! command_exists bash; then
-        echo "ERROR: Bash is required"
-        exit 1
-    fi
-    
     # Warn about missing optional tools
     local recommended=("nmap" "curl" "host")
     for tool in "${recommended[@]}"; do
@@ -889,9 +1101,6 @@ check_dependencies() {
     fi
 }
 
-# Create output directory
-mkdir -p "$OUTPUT_DIR"
-
 # Check if running as root (warning)
 if [[ $EUID -eq 0 ]]; then
     clear
@@ -904,6 +1113,9 @@ check_dependencies
 
 # Initialize session (ask user for session name)
 initialize_session
+
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
 
 # Start main loop
 main_loop
