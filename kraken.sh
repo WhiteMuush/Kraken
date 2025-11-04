@@ -27,7 +27,7 @@ readonly BRIGHT_CYAN="$(tput setaf 14)"
 # ============================================================================
 # GLOBAL VARIABLES
 # ============================================================================
-readonly SCRIPT_VERSION="0.9.0"
+readonly SCRIPT_VERSION="1.0.0"
 readonly SCRIPT_NAME="Kraken Pentest Framework"
 readonly BASE_DIR="kraken_output"
 SESSION_NAME=""
