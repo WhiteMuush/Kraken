@@ -1,1121 +1,131 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# Kraken: modular Bash penetration testing orchestrator.
+# Entry point. The interactive menu must NOT use `set -e` because a single
+# non-zero exit code from a child tool (nmap, curl...) would kill the loop.
 
-# ============================================================================
-# COLOR DEFINITIONS
-# ============================================================================
-readonly RESET="$(tput sgr0)"
-readonly BOLD="$(tput bold)"
-readonly DIM="$(tput dim)"
+set -uo pipefail
 
-# Standard colors
-readonly RED="$(tput setaf 1)"
-readonly GREEN="$(tput setaf 2)"
-readonly YELLOW="$(tput setaf 3)"
-readonly BLUE="$(tput setaf 4)"
-readonly MAGENTA="$(tput setaf 5)"
-readonly CYAN="$(tput setaf 6)"
+KRAKEN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly KRAKEN_ROOT
 
-# Bright colors
-readonly BRIGHT_RED="$(tput setaf 9)"
-readonly BRIGHT_GREEN="$(tput setaf 10)"
-readonly BRIGHT_YELLOW="$(tput setaf 11)"
-readonly BRIGHT_BLUE="$(tput setaf 12)"
-readonly BRIGHT_MAGENTA="$(tput setaf 13)"
-readonly BRIGHT_CYAN="$(tput setaf 14)"
+# shellcheck source=lib/core.sh
+source "${KRAKEN_ROOT}/lib/core.sh"
+# shellcheck source=lib/logger.sh
+source "${KRAKEN_ROOT}/lib/logger.sh"
+# shellcheck source=lib/installer.sh
+source "${KRAKEN_ROOT}/lib/installer.sh"
+# shellcheck source=lib/ui.sh
+source "${KRAKEN_ROOT}/lib/ui.sh"
+# shellcheck source=lib/session.sh
+source "${KRAKEN_ROOT}/lib/session.sh"
+# shellcheck source=lib/modules/recon.sh
+source "${KRAKEN_ROOT}/lib/modules/recon.sh"
+# shellcheck source=lib/modules/scan.sh
+source "${KRAKEN_ROOT}/lib/modules/scan.sh"
+# shellcheck source=lib/modules/web.sh
+source "${KRAKEN_ROOT}/lib/modules/web.sh"
+# shellcheck source=lib/modules/vuln.sh
+source "${KRAKEN_ROOT}/lib/modules/vuln.sh"
+# shellcheck source=lib/modules/report.sh
+source "${KRAKEN_ROOT}/lib/modules/report.sh"
 
-# ============================================================================
-# GLOBAL VARIABLES
-# ============================================================================
-readonly SCRIPT_VERSION="1.0.0"
-readonly SCRIPT_NAME="Kraken Pentest Framework"
-readonly BASE_DIR="kraken_output"
-SESSION_NAME=""
-OUTPUT_DIR=""
+print_usage() {
+    cat <<EOF
+${KRAKEN_NAME} v${KRAKEN_VERSION}
 
-# ============================================================================
-# ASCII ART BANNER
-# ============================================================================
-readonly ASCII_ART='⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣴⣶⣤⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⣠⡤⣤⣄⣾⣿⣿⣿⣿⣿⣿⣷⣠⣀⣄⡀⠀⠀⠀⠀
-⠀⠀⠀⠀⠙⠀⠈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣬⡿⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⢀⣼⠟⢿⣿⣿⣿⣿⣿⣿⡿⠘⣷⣄⠀⠀⠀⠀⠀
-⣰⠛⠛⣿⢠⣿⠋⠀⠀⢹⠻⣿⣿⡿⢻⠁⠀⠈⢿⣦⠀⠀⠀⠀
-⢈⣵⡾⠋⣿⣯⠀⠀⢀⣼⣷⣿⣿⣶⣷⡀⠀⠀⢸⣿⣀⣀⠀⠀
-⢾⣿⣀⠀⠘⠻⠿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⠿⣿⡁⠀⠀⠀
-⠈⠙⠛⠿⠿⠿⢿⣿⡿⣿⣿⡿⢿⣿⣿⣿⣷⣄⠀⠘⢷⣆⠀⠀
-⠀⠀⠀⠀⠀⢠⣿⠏⠀⣿⡏⠀⣼⣿⠛⢿⣿⣿⣆⠀⠀⣿⡇⡀
-⠀⠀⠀⠀⢀⣾⡟⠀⠀⣿⣇⠀⢿⣿⡀⠈⣿⡌⠻⠷⠾⠿⣻⠁
-⠀⠀⣠⣶⠟⠫⣤⠀⠀⢸⣿⠀⣸⣿⢇⡤⢼⣧⠀⠀⠀⢀⣿⠀
-⠀⣾⡏⠀⡀⣠⡟⠀⠀⢀⣿⣾⠟⠁⣿⡄⠀⠻⣷⣤⣤⡾⠋⠀
-⠀⠙⠷⠾⠁⠻⣧⣀⣤⣾⣿⠋⠀⠀⢸⣧⠀⠀⠀⠉⠁⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠈⠉⠉⠹⣿⣄⠀⠀⣸⡿⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠛⠿⠟⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀'
+Usage:
+  $(basename "$0") [--help] [--version]
 
-# ============================================================================
-# INFORMATION PANEL
-# ============================================================================
-readonly INFO_PANEL=(
-    ""
-    "${BOLD}${BRIGHT_MAGENTA}▄ •▄ ▄▄▄   ▄▄▄· ▄ •▄ ▄▄▄ . ▐ ▄"
-    "${BOLD}${BRIGHT_MAGENTA}█▌▄▌▪▀▄ █·▐█ ▀█ █▌▄▌▪▀▄.▀·•█▌▐█"
-    "${BOLD}${BRIGHT_MAGENTA}▐▀▀▄·▐▀▀▄ ▄█▀▀█ ▐▀▀▄·▐▀▀▪▄▐█▐▐▌"
-    "${BOLD}${BRIGHT_MAGENTA}▐█.█▌▐█•█▌▐█ ▪▐▌▐█.█▌▐█▄▄▌██▐█▌"
-    "${BOLD}${BRIGHT_MAGENTA}·▀  ▀.▀  ▀ ▀  ▀ ·▀  ▀ ▀▀▀ ▀▀ █▪"
-    ""
-    "${BOLD}${BRIGHT_MAGENTA}╔═══════════════════════════════════════════════════╗${RESET}"
-    "${BOLD}${BRIGHT_MAGENTA}║${RESET}  ${BOLD}${SCRIPT_NAME} v${SCRIPT_VERSION}${RESET}                  ${BRIGHT_MAGENTA}║"
-    "${BRIGHT_MAGENTA}║${RESET}  Creator: ${BRIGHT_CYAN}\e]8;;https://github.com/WhiteMuush\aMelvin PETIT\e]8;;\a${RESET}                            ${BRIGHT_MAGENTA}║"
-    "${BOLD}${BRIGHT_MAGENTA}╚═══════════════════════════════════════════════════╝${RESET}"
-    "${BRIGHT_YELLOW}${BOLD}[!]${RESET} ${DIM}Modular Bash framework for automated pentesting${RESET}"
-    "${BRIGHT_YELLOW}${BOLD}[!]${RESET} ${DIM}Orchestrates recon, scanning, enumeration & reporting${RESET}"
-    ""
-    "${BRIGHT_GREEN}${BOLD}[✓]${RESET} ${GREEN}Use only on authorized targets${RESET}"
-)
+Run with no arguments to launch the interactive menu.
+Some modules require sudo for raw socket access (nmap SYN scans, etc).
 
-# ============================================================================
-# MENU OPTIONS
-# ============================================================================
-readonly MENU_OPTIONS=(
-    "${BRIGHT_MAGENTA}╔══════════════ ${BOLD}MAIN MENU${RESET}${BRIGHT_MAGENTA} ══════════════╗${RESET}"
-    "${BRIGHT_MAGENTA}║${RESET}"
-    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[1]${RESET} Reconnaissance Module"           
-    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[2]${RESET} Port Scanning Module"
-    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[3]${RESET} Web Enumeration Module"
-    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[4]${RESET} Vulnerability Assessment"
-    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_CYAN}[5]${RESET} Generate Report"
-    "${BRIGHT_MAGENTA}║${RESET}"
-    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_YELLOW}[C]${RESET} Configuration"
-    "${BRIGHT_MAGENTA}║${RESET}  ${BRIGHT_RED}[Q]${RESET} Quit"
-    "${BRIGHT_MAGENTA}║${RESET}"
-    "${BRIGHT_MAGENTA}╚════════════════════════════════════════╝${RESET}"
-    ""
-)
+Options:
+  -h, --help       Show this help and exit
+  -v, --version    Show version and exit
 
-# ============================================================================
-# UTILITY FUNCTIONS
-# ============================================================================
-
-# Clear screen and reset cursor
-clear_screen() {
-    clear
-    tput cup 0 0
+See docs/ARCHITECTURE.md for the module layout, and
+docs/ADDING_A_MODULE.md to extend Kraken with new tentacles.
+EOF
 }
-
-# Print separator line
-print_separator() {
-    local char="${1:-─}"
-    local width
-    width=$(tput cols)
-    printf "${BRIGHT_MAGENTA}%*s${RESET}\n" "$width" | tr ' ' "$char"
-}
-
-# Log message with timestamp
-log_message() {
-    local level="$1"
-    local message="$2"
-    local timestamp
-    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
-    case "$level" in
-        info)    echo "${BRIGHT_BLUE}[i]${RESET} ${timestamp} - ${message}" ;;
-        success) echo "${BRIGHT_GREEN}[✓]${RESET} ${timestamp} - ${message}" ;;
-        warning) echo "${BRIGHT_YELLOW}[!]${RESET} ${timestamp} - ${message}" ;;
-        error)   echo "${BRIGHT_RED}[✗]${RESET} ${timestamp} - ${message}" ;;
-        *)       echo "${DIM}[?]${RESET} ${timestamp} - ${message}" ;;
-    esac
-}
-
-# Check if command exists
-command_exists() {
-    command -v "$1" &> /dev/null
-}
-
-# Test if target is reachable
-test_connectivity() {
-    local target="$1"
-    if ping -c 1 -W 2 "$target" &> /dev/null; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# ============================================================================
-# DISPLAY FUNCTIONS
-# ============================================================================
-
-# Display ASCII art with info panel side-by-side
-display_banner() {
-    local -a ascii_lines info_lines
-    
-    IFS=$'\n' read -r -d '' -a ascii_lines <<< "$ASCII_ART" || true
-    info_lines=("${INFO_PANEL[@]}")
-    
-    local ascii_count=${#ascii_lines[@]}
-    local info_count=${#info_lines[@]}
-    local max_lines=$((ascii_count > info_count ? ascii_count : info_count))
-    
-    local max_ascii_width=0
-    for line in "${ascii_lines[@]}"; do
-        ((${#line} > max_ascii_width)) && max_ascii_width=${#line}
-    done
-    
-    local spacing="    "
-    
-    for ((i=0; i<max_lines; i++)); do
-        local ascii_line="${ascii_lines[i]:-}"
-        local info_line="${info_lines[i]:-}"
-        
-        local colored_ascii="${BRIGHT_MAGENTA}${ascii_line}${RESET}"
-        local pad=$((max_ascii_width - ${#ascii_line}))
-        ((pad < 0)) && pad=0
-        
-        printf "   %b%*s%s%b\n" \
-            "$colored_ascii" \
-            "$pad" "" \
-            "$spacing" \
-            "$info_line"
-    done
-    
-    echo ""
-}
-
-# Display main menu
-display_menu() {
-    for line in "${MENU_OPTIONS[@]}"; do
-        echo "$line"
-    done
-}
-
-# ============================================================================
-# MODULE HANDLERS
-# ============================================================================
-
-module_recon() {
-    clear_screen
-    log_message "info" "Launching reconnaissance module..."
-    echo ""
-    
-    # Input
-    read -rp "${BRIGHT_CYAN}[?]${RESET} Enter target (domain or IP): " target
-    
-    if [[ -z "$target" ]]; then
-        log_message "error" "No target specified"
-        read -rp "${DIM}Press Enter to continue...${RESET}"
-        return
-    fi
-    
-    # Setup
-    local recon_dir="$OUTPUT_DIR/recon_$target"
-    mkdir -p "$recon_dir"
-    log_message "success" "Output directory: $recon_dir"
-    
-    # === Connectivity Test ===
-    log_message "info" "Testing connectivity..."
-    if test_connectivity "$target"; then
-        log_message "success" "Target is reachable"
-    else
-        log_message "warning" "Target may be unreachable or blocking ICMP"
-    fi
-    
-    # === DNS Enumeration (native bash) ===
-    log_message "info" "Performing DNS lookups..."
-    {
-        echo "# DNS Records for $target - $(date)"
-        echo ""
-        
-        # Using host command (more universal than dig)
-        if command_exists host; then
-            echo "=== A Records ==="
-            host -t A "$target" 2>/dev/null | grep "has address" || echo "No A records found"
-            echo ""
-            echo "=== MX Records ==="
-            host -t MX "$target" 2>/dev/null | grep "mail is handled" || echo "No MX records"
-            echo ""
-            echo "=== NS Records ==="
-            host -t NS "$target" 2>/dev/null | grep "name server" || echo "No NS records"
-        elif command_exists nslookup; then
-            echo "=== DNS Info (nslookup) ==="
-            nslookup "$target" 2>/dev/null || echo "nslookup failed"
-        else
-            # Fallback: try to resolve with getent
-            echo "=== Basic Resolution ==="
-            getent hosts "$target" 2>/dev/null || echo "Could not resolve $target"
-        fi
-    } > "$recon_dir/dns_records.txt"
-    log_message "success" "DNS records saved"
-    
-    # === Subdomain Enumeration ===
-    if command_exists subfinder; then
-        log_message "info" "Searching subdomains with subfinder..."
-        subfinder -d "$target" -o "$recon_dir/subdomains.txt" -silent 2>/dev/null
-        local sub_count=$(wc -l < "$recon_dir/subdomains.txt" 2>/dev/null || echo 0)
-        log_message "success" "Found $sub_count subdomains"
-    else
-        log_message "warning" "subfinder not installed (install: go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest)"
-    fi
-    
-    # === WHOIS ===
-    if command_exists whois; then
-        log_message "info" "Gathering WHOIS information..."
-        whois "$target" > "$recon_dir/whois.txt" 2>/dev/null && \
-            log_message "success" "WHOIS data saved" || \
-            log_message "warning" "WHOIS lookup failed"
-    fi
-    
-    # === Reverse DNS ===
-    if command_exists host; then
-        log_message "info" "Attempting reverse DNS..."
-        local ip=$(host "$target" 2>/dev/null | grep "has address" | head -1 | awk '{print $NF}')
-        if [[ -n "$ip" ]]; then
-            host "$ip" > "$recon_dir/reverse_dns.txt" 2>/dev/null
-            log_message "success" "Reverse DNS completed"
-        fi
-    fi
-    
-    # === Summary ===
-    echo ""
-    print_separator "─"
-    log_message "success" "Reconnaissance complete!"
-    echo "${BRIGHT_BLUE}Results saved in:${RESET} $recon_dir"
-    
-    if [[ -d "$recon_dir" ]]; then
-        echo ""
-        echo "${DIM}Files created:${RESET}"
-        ls -lh "$recon_dir" | tail -n +2 | awk '{print "  - " $9 " (" $5 ")"}'
-    fi
-    
-    echo ""
-    read -rp "${DIM}Press Enter to continue...${RESET}"
-}
-
-module_scan() {
-    clear_screen
-    log_message "info" "Launching port scanning module..."
-    echo ""
-    
-    read -rp "${BRIGHT_CYAN}[?]${RESET} Enter target IP/domain: " target
-    
-    if [[ -z "$target" ]]; then
-        log_message "error" "No target specified"
-        read -rp "${DIM}Press Enter to continue...${RESET}"
-        return
-    fi
-    
-    local scan_dir="$OUTPUT_DIR/scan_$target"
-    mkdir -p "$scan_dir"
-    log_message "success" "Output directory: $scan_dir"
-    
-    # === Connectivity Test ===
-    log_message "info" "Testing connectivity..."
-    if test_connectivity "$target"; then
-        log_message "success" "Target is reachable"
-    else
-        log_message "warning" "Target may be blocking ICMP"
-    fi
-    
-    # === Port Scanning ===
-    if command_exists nmap; then
-        log_message "info" "Scanning with nmap (this may take a while)..."
-        echo ""
-        
-        # Quick scan first
-        log_message "info" "Phase 1: Quick scan (top 100 ports)..."
-        nmap -Pn -T4 --top-ports 100 "$target" -oN "$scan_dir/nmap_quick.txt" 2>/dev/null
-        
-        # Service detection on open ports
-        log_message "info" "Phase 2: Service version detection..."
-        nmap -Pn -sV --open "$target" -oN "$scan_dir/nmap_services.txt" 2>/dev/null
-        
-        log_message "success" "Nmap scan complete"
-        
-        # Display results
-        echo ""
-        echo "${BRIGHT_MAGENTA}═══ Open Ports ═══${RESET}"
-        grep "open" "$scan_dir/nmap_services.txt" | grep -v "filtered" | while read -r line; do
-            echo "  ${BRIGHT_GREEN}[+]${RESET} $line"
-        done
-        
-    else
-        log_message "warning" "nmap not installed, using native bash scan..."
-        echo ""
-        
-        local common_ports=(21 22 23 25 53 80 110 143 443 445 3306 3389 5432 8080 8443)
-        local open_count=0
-        
-        echo "${BRIGHT_MAGENTA}═══ Scanning Common Ports ═══${RESET}"
-        for port in "${common_ports[@]}"; do
-            if timeout 2 bash -c "echo >/dev/tcp/$target/$port" 2>/dev/null; then
-                echo "  ${BRIGHT_GREEN}[+] Port $port: OPEN${RESET}"
-                echo "Port $port: OPEN" >> "$scan_dir/bash_scan.txt"
-                ((open_count++))
-            fi
-        done
-        
-        log_message "success" "Found $open_count open ports"
-    fi
-    
-    # === Summary ===
-    echo ""
-    print_separator "─"
-    log_message "success" "Port scanning complete!"
-    echo "${BRIGHT_BLUE}Results saved in:${RESET} $scan_dir"
-    echo ""
-    read -rp "${DIM}Press Enter to continue...${RESET}"
-}
-
-module_web() {
-    clear_screen
-    log_message "info" "Launching web enumeration module..."
-    echo ""
-    
-    read -rp "${BRIGHT_CYAN}[?]${RESET} Enter target URL (e.g., http://example.com): " url
-    
-    if [[ -z "$url" ]]; then
-        log_message "error" "No URL specified"
-        read -rp "${DIM}Press Enter to continue...${RESET}"
-        return
-    fi
-    
-    # Ensure URL has protocol
-    if [[ ! "$url" =~ ^https?:// ]]; then
-        url="http://$url"
-        log_message "info" "Assuming http:// protocol"
-    fi
-    
-    local web_dir="$OUTPUT_DIR/web_$(echo "$url" | sed 's|https\?://||' | tr '/:' '_')"
-    mkdir -p "$web_dir"
-    log_message "success" "Output directory: $web_dir"
-    
-    # === Connectivity Test ===
-    log_message "info" "Testing web server connectivity..."
-    if command_exists curl; then
-        local status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" 2>/dev/null)
-        if [[ "$status" =~ ^[23] ]]; then
-            log_message "success" "Server responded with HTTP $status"
-        else
-            log_message "warning" "Server responded with HTTP $status"
-        fi
-    fi
-    
-    # === HTTP Headers ===
-    if command_exists curl; then
-        log_message "info" "Fetching HTTP headers..."
-        curl -s -I --max-time 10 "$url" > "$web_dir/headers.txt" 2>/dev/null
-        log_message "success" "Headers saved"
-        
-        echo ""
-        echo "${BRIGHT_MAGENTA}═══ Server Headers ═══${RESET}"
-        head -10 "$web_dir/headers.txt" | while read -r line; do
-            echo "  ${DIM}$line${RESET}"
-        done
-    fi
-    
-    # === Directory Enumeration ===
-    log_message "info" "Testing common directories..."
-    local dirs=(
-        "admin" "administrator" "login" "dashboard" "panel"
-        "backup" "backups" "config" "api" "test" "dev"
-        "phpinfo.php" "info.php" ".git" ".env"
-    )
-    
-    echo ""
-    echo "${BRIGHT_MAGENTA}═══ Directory Enumeration ═══${RESET}"
-    
-    {
-        echo "# Directory Scan - $(date)"
-        echo "# Target: $url"
-        echo ""
-    } > "$web_dir/directories.txt"
-    
-    for dir in "${dirs[@]}"; do
-        local test_url="$url/$dir"
-        if command_exists curl; then
-            local status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$test_url" 2>/dev/null)
-            
-            if [[ "$status" == "200" ]]; then
-                echo "  ${BRIGHT_GREEN}[✓] /$dir${RESET} (HTTP $status)"
-                echo "FOUND: /$dir (HTTP $status)" >> "$web_dir/directories.txt"
-            elif [[ "$status" == "403" ]]; then
-                echo "  ${BRIGHT_YELLOW}[!] /$dir${RESET} (HTTP $status - Forbidden)"
-                echo "FORBIDDEN: /$dir (HTTP $status)" >> "$web_dir/directories.txt"
-            elif [[ "$status" == "401" ]]; then
-                echo "  ${BRIGHT_YELLOW}[!] /$dir${RESET} (HTTP $status - Auth Required)"
-                echo "AUTH: /$dir (HTTP $status)" >> "$web_dir/directories.txt"
-            fi
-        fi
-    done
-    
-    # === Technology Detection ===
-    if command_exists curl; then
-        log_message "info" "Detecting web technologies..."
-        local content=$(curl -s --max-time 10 "$url" 2>/dev/null)
-        
-        {
-            echo ""
-            echo "# Technology Detection"
-            echo ""
-            
-            echo "$content" | grep -i "wordpress" > /dev/null && echo "- WordPress detected"
-            echo "$content" | grep -i "drupal" > /dev/null && echo "- Drupal detected"
-            echo "$content" | grep -i "joomla" > /dev/null && echo "- Joomla detected"
-            grep -i "server:" "$web_dir/headers.txt" 2>/dev/null
-            grep -i "x-powered-by:" "$web_dir/headers.txt" 2>/dev/null
-        } >> "$web_dir/technologies.txt"
-    fi
-    
-    # === Robots.txt ===
-    if command_exists curl; then
-        log_message "info" "Checking robots.txt..."
-        if curl -s --max-time 5 "$url/robots.txt" > "$web_dir/robots.txt" 2>/dev/null; then
-            if [[ -s "$web_dir/robots.txt" ]]; then
-                log_message "success" "robots.txt found"
-            fi
-        fi
-    fi
-    
-    # === Summary ===
-    echo ""
-    print_separator "─"
-    log_message "success" "Web enumeration complete!"
-    echo "${BRIGHT_BLUE}Results saved in:${RESET} $web_dir"
-    echo ""
-    read -rp "${DIM}Press Enter to continue...${RESET}"
-}
-
-module_vuln() {
-    clear_screen
-    log_message "info" "Launching vulnerability assessment..."
-    echo ""
-    
-    read -rp "${BRIGHT_CYAN}[?]${RESET} Enter target (IP/domain): " target
-    
-    if [[ -z "$target" ]]; then
-        log_message "error" "No target specified"
-        read -rp "${DIM}Press Enter to continue...${RESET}"
-        return
-    fi
-    
-    local vuln_dir="$OUTPUT_DIR/vuln_$target"
-    mkdir -p "$vuln_dir"
-    log_message "success" "Output directory: $vuln_dir"
-    
-    # === SSL/TLS Testing ===
-    log_message "info" "Testing SSL/TLS configuration..."
-    if command_exists openssl; then
-        echo | openssl s_client -connect "$target:443" -servername "$target" 2>/dev/null | \
-            openssl x509 -noout -text > "$vuln_dir/ssl_cert.txt" 2>/dev/null && \
-            log_message "success" "SSL certificate analyzed" || \
-            log_message "warning" "Could not retrieve SSL certificate"
-    fi
-    
-    # === Check for common vulnerabilities ===
-    log_message "info" "Checking common misconfigurations..."
-    
-    echo "${BRIGHT_MAGENTA}═══ Basic Security Checks ═══${RESET}"
-    
-    {
-        echo "# Vulnerability Assessment - $(date)"
-        echo "# Target: $target"
-        echo ""
-    } > "$vuln_dir/findings.txt"
-    
-    # Check HTTP methods
-    if command_exists curl; then
-        log_message "info" "Testing HTTP methods..."
-        local methods=$(curl -s -X OPTIONS -I "http://$target" 2>/dev/null | grep -i "allow:")
-        if [[ -n "$methods" ]]; then
-            echo "  ${BRIGHT_YELLOW}[!]${RESET} Allowed HTTP methods: $methods"
-            echo "HTTP_METHODS: $methods" >> "$vuln_dir/findings.txt"
-        fi
-    fi
-    
-    # Check security headers
-    if command_exists curl; then
-        log_message "info" "Checking security headers..."
-        local headers=$(curl -s -I "http://$target" 2>/dev/null)
-        
-        if ! echo "$headers" | grep -qi "x-frame-options"; then
-            echo "  ${BRIGHT_RED}[✗]${RESET} Missing: X-Frame-Options"
-            echo "MISSING_HEADER: X-Frame-Options" >> "$vuln_dir/findings.txt"
-        fi
-        
-        if ! echo "$headers" | grep -qi "content-security-policy"; then
-            echo "  ${BRIGHT_RED}[✗]${RESET} Missing: Content-Security-Policy"
-            echo "MISSING_HEADER: Content-Security-Policy" >> "$vuln_dir/findings.txt"
-        fi
-        
-        if ! echo "$headers" | grep -qi "strict-transport-security"; then
-            echo "  ${BRIGHT_RED}[✗]${RESET} Missing: Strict-Transport-Security"
-            echo "MISSING_HEADER: Strict-Transport-Security" >> "$vuln_dir/findings.txt"
-        fi
-        
-        if echo "$headers" | grep -qi "server:"; then
-            local server=$(echo "$headers" | grep -i "server:" | head -1)
-            echo "  ${BRIGHT_YELLOW}[!]${RESET} Server banner exposed: $server"
-            echo "INFO_DISCLOSURE: $server" >> "$vuln_dir/findings.txt"
-        fi
-    fi
-    
-    # === Summary ===
-    echo ""
-    print_separator "─"
-    log_message "success" "Vulnerability assessment complete!"
-    echo "${BRIGHT_BLUE}Results saved in:${RESET} $vuln_dir"
-    echo ""
-    echo "${DIM}Note: This is a basic assessment. Use specialized tools for in-depth testing.${RESET}"
-    echo ""
-    read -rp "${DIM}Press Enter to continue...${RESET}"
-}
-
-module_report() {
-    clear_screen
-    log_message "info" "Generating session report..."
-    echo ""
-    
-    if [[ ! -d "$OUTPUT_DIR" ]]; then
-        log_message "error" "No output directory found. Run scans first."
-        read -rp "${DIM}Press Enter to continue...${RESET}"
-        return
-    fi
-    
-    local report_file="$OUTPUT_DIR/REPORT_$(date +%Y%m%d_%H%M%S).txt"
-    
-    log_message "info" "Collecting scan data..."
-    
-    # Generate text report
-    {
-        echo "=========================================="
-        echo "    KRAKEN PENTEST REPORT"
-        echo "=========================================="
-        echo ""
-        echo "Generated: $(date '+%Y-%m-%d %H:%M:%S')"
-        echo "Operator: $(whoami)@$(hostname)"
-        echo "Session: $SESSION_NAME"
-        echo ""
-        echo "=========================================="
-        echo "    EXECUTIVE SUMMARY"
-        echo "=========================================="
-        echo ""
-        
-        # Statistics
-        local total_findings=$(find "$OUTPUT_DIR" -name "findings.txt" -exec wc -l {} + 2>/dev/null | tail -1 | awk '{print $1}' || echo 0)
-        local hosts_scanned=$(find "$OUTPUT_DIR" -type d \( -name "recon_*" -o -name "scan_*" \) | wc -l)
-        local ports_found=$(find "$OUTPUT_DIR" -name "*scan*.txt" -exec grep -h "open" {} + 2>/dev/null | wc -l || echo 0)
-        local targets=$(find "$OUTPUT_DIR" -type d -name "recon_*" -o -name "scan_*" -o -name "web_*" | \
-                        sed 's|.*/[^_]*_||' | sort -u | tr '\n' ', ' | sed 's/,$//')
-        
-        echo "Total Findings    : $total_findings"
-        echo "Hosts Scanned     : $hosts_scanned"
-        echo "Open Ports Found  : $ports_found"
-        echo "Vulnerabilities   : $total_findings"
-        echo ""
-        echo "=========================================="
-        echo "    SCOPE"
-        echo "=========================================="
-        echo ""
-        echo "Target(s): ${targets:-None}"
-        echo "Output Directory: $OUTPUT_DIR"
-        echo ""
-        
-        # Reconnaissance Results
-        echo "=========================================="
-        echo "    RECONNAISSANCE RESULTS"
-        echo "=========================================="
-        echo ""
-        
-        if ls "$OUTPUT_DIR"/recon_* &>/dev/null; then
-            for dir in "$OUTPUT_DIR"/recon_*; do
-                local target=$(basename "$dir" | sed 's/recon_//')
-                echo "Target: $target"
-                echo "----------------------------------------"
-                
-                if [[ -f "$dir/subdomains.txt" ]]; then
-                    local sub_count=$(wc -l < "$dir/subdomains.txt")
-                    echo "  Subdomains found: $sub_count"
-                    if [[ $sub_count -gt 0 ]]; then
-                        echo "  Top 10 subdomains:"
-                        head -10 "$dir/subdomains.txt" | sed 's/^/    - /'
-                    fi
-                fi
-                
-                if [[ -f "$dir/dns_records.txt" ]]; then
-                    echo "  DNS Records:"
-                    grep -A2 "===" "$dir/dns_records.txt" | sed 's/^/    /'
-                fi
-                
-                echo ""
-            done
-        else
-            echo "No reconnaissance data found."
-            echo ""
-        fi
-        
-        # Port Scanning Results
-        echo "=========================================="
-        echo "    PORT SCANNING RESULTS"
-        echo "=========================================="
-        echo ""
-        
-        if ls "$OUTPUT_DIR"/scan_* &>/dev/null; then
-            for dir in "$OUTPUT_DIR"/scan_*; do
-                local target=$(basename "$dir" | sed 's/scan_//')
-                echo "Target: $target"
-                echo "----------------------------------------"
-                
-                if [[ -f "$dir/nmap_services.txt" ]]; then
-                    local port_count=$(grep -c "open" "$dir/nmap_services.txt" 2>/dev/null || echo 0)
-                    echo "  Open ports: $port_count"
-                    echo ""
-                    echo "  Services detected:"
-                    grep "open" "$dir/nmap_services.txt" | sed 's/^/    /'
-                elif [[ -f "$dir/bash_scan.txt" ]]; then
-                    local port_count=$(wc -l < "$dir/bash_scan.txt")
-                    echo "  Open ports: $port_count"
-                    echo ""
-                    cat "$dir/bash_scan.txt" | sed 's/^/    /'
-                else
-                    echo "  No scan data available"
-                fi
-                
-                echo ""
-            done
-        else
-            echo "No port scan data found."
-            echo ""
-        fi
-        
-        # Web Enumeration Results
-        echo "=========================================="
-        echo "    WEB ENUMERATION RESULTS"
-        echo "=========================================="
-        echo ""
-        
-        if ls "$OUTPUT_DIR"/web_* &>/dev/null; then
-            for dir in "$OUTPUT_DIR"/web_*; do
-                local target=$(basename "$dir" | sed 's/web_//' | tr '_' '/')
-                echo "Target: $target"
-                echo "----------------------------------------"
-                
-                if [[ -f "$dir/headers.txt" ]]; then
-                    local status=$(head -1 "$dir/headers.txt" | awk '{print $2}')
-                    echo "  HTTP Status: $status"
-                fi
-                
-                if [[ -f "$dir/directories.txt" ]]; then
-                    local dir_count=$(grep -c "FOUND:" "$dir/directories.txt" 2>/dev/null || echo 0)
-                    echo "  Directories found: $dir_count"
-                    
-                    if [[ $dir_count -gt 0 ]]; then
-                        echo ""
-                        echo "  Discovered paths:"
-                        grep "FOUND:\|FORBIDDEN:\|AUTH:" "$dir/directories.txt" | sed 's/^/    /'
-                    fi
-                fi
-                
-                if [[ -f "$dir/technologies.txt" ]]; then
-                    echo ""
-                    echo "  Technologies:"
-                    cat "$dir/technologies.txt" | grep -v "^#" | grep -v "^$" | sed 's/^/    /'
-                fi
-                
-                echo ""
-            done
-        else
-            echo "No web enumeration data found."
-            echo ""
-        fi
-        
-        # Vulnerability Assessment Results
-        echo "=========================================="
-        echo "    VULNERABILITY ASSESSMENT"
-        echo "=========================================="
-        echo ""
-        
-        if ls "$OUTPUT_DIR"/vuln_* &>/dev/null; then
-            for dir in "$OUTPUT_DIR"/vuln_*; do
-                local target=$(basename "$dir" | sed 's/vuln_//')
-                echo "Target: $target"
-                echo "----------------------------------------"
-                
-                if [[ -f "$dir/findings.txt" ]]; then
-                    cat "$dir/findings.txt" | grep -v "^#" | sed 's/^/  /'
-                else
-                    echo "  No findings recorded"
-                fi
-                
-                echo ""
-            done
-        else
-            echo "No vulnerability assessment data found."
-            echo ""
-        fi
-        
-        # Recommendations
-        echo "=========================================="
-        echo "    RECOMMENDATIONS"
-        echo "=========================================="
-        echo ""
-        echo "1. Review and patch all identified vulnerabilities"
-        echo "   - Prioritize critical and high-severity findings"
-        echo "   - Apply security patches promptly"
-        echo ""
-        echo "2. Implement missing security headers"
-        echo "   - X-Frame-Options"
-        echo "   - Content-Security-Policy"
-        echo "   - Strict-Transport-Security"
-        echo ""
-        echo "3. Disable unnecessary services and ports"
-        echo "   - Close unused ports"
-        echo "   - Remove or disable unnecessary services"
-        echo ""
-        echo "4. Regular security audits"
-        echo "   - Conduct periodic penetration testing"
-        echo "   - Implement continuous security monitoring"
-        echo ""
-        echo "5. Keep systems updated"
-        echo "   - Apply security patches regularly"
-        echo "   - Update all software and dependencies"
-        echo ""
-        echo "=========================================="
-        echo "    END OF REPORT"
-        echo "=========================================="
-        echo ""
-        echo "Report generated by: Kraken Pentest Framework v$SCRIPT_VERSION"
-        echo "For authorized security testing only"
-        echo ""
-        
-    } > "$report_file"
-    
-    log_message "success" "Report generated!"
-    echo ""
-    echo "${BRIGHT_GREEN}Report saved to:${RESET}"
-    echo "  ${BRIGHT_BLUE}$report_file${RESET}"
-    echo ""
-    
-    # Offer to view report
-    read -rp "${BRIGHT_CYAN}[?]${RESET} View report now? (y/N): " view_now
-    if [[ "${view_now,,}" == "y" ]]; then
-        echo ""
-        print_separator "="
-        
-        if command_exists less; then
-            less "$report_file"
-        else
-            cat "$report_file"
-        fi
-    fi
-    
-    echo ""
-    echo "${DIM}View report with:${RESET}"
-    echo "  ${BRIGHT_CYAN}cat $report_file${RESET}"
-    echo "  ${BRIGHT_CYAN}less $report_file${RESET}"
-    echo "  ${BRIGHT_CYAN}nano $report_file${RESET}"
-    echo ""
-    read -rp "${DIM}Press Enter to continue...${RESET}"
-}
-
-show_config() {
-    clear_screen
-    echo "${BRIGHT_MAGENTA}${BOLD}╔═══════════════════════════════════════╗${RESET}"
-    echo "${BRIGHT_MAGENTA}${BOLD}║         Configuration Info           ║${RESET}"
-    echo "${BRIGHT_MAGENTA}${BOLD}╚═══════════════════════════════════════╝${RESET}"
-    echo ""
-    
-    echo "${BRIGHT_CYAN}General:${RESET}"
-    echo "  Script Version    : ${BRIGHT_BLUE}$SCRIPT_VERSION${RESET}"
-    echo "  Current User      : ${BRIGHT_BLUE}$(whoami)${RESET}"
-    echo "  Working Directory : ${BRIGHT_BLUE}$(pwd)${RESET}"
-    echo ""
-    
-    echo "${BRIGHT_CYAN}Current Session:${RESET}"
-    echo "  Session Name      : ${BRIGHT_GREEN}${BOLD}$SESSION_NAME${RESET}"
-    echo "  Output Directory  : ${BRIGHT_BLUE}$OUTPUT_DIR${RESET}"
-    
-    if [[ -d "$OUTPUT_DIR" ]]; then
-        local file_count=$(find "$OUTPUT_DIR" -type f 2>/dev/null | wc -l)
-        local scan_count=$(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
-        echo "  Scans Performed   : ${BRIGHT_BLUE}$scan_count${RESET}"
-        echo "  Files Created     : ${BRIGHT_BLUE}$file_count${RESET}"
-        echo "  Session Size      : ${BRIGHT_BLUE}$(du -sh "$OUTPUT_DIR" 2>/dev/null | cut -f1)${RESET}"
-    fi
-    echo ""
-    
-    echo "${BRIGHT_CYAN}Available Tools:${RESET}"
-    local tools=("nmap" "curl" "host" "whois" "subfinder" "ping" "openssl")
-    for tool in "${tools[@]}"; do
-        if command_exists "$tool"; then
-            echo "  ${BRIGHT_GREEN}[✓]${RESET} $tool"
-        else
-            echo "  ${BRIGHT_RED}[✗]${RESET} $tool ${DIM}(not installed)${RESET}"
-        fi
-    done
-    echo ""
-    
-    echo "${BRIGHT_CYAN}System Info:${RESET}"
-    echo "  Hostname          : ${BRIGHT_BLUE}$(hostname)${RESET}"
-    echo "  Kernel            : ${BRIGHT_BLUE}$(uname -r)${RESET}"
-    echo "  Shell             : ${BRIGHT_BLUE}$SHELL${RESET}"
-    echo ""
-    
-    if [[ -d "$BASE_DIR" ]]; then
-        echo "${BRIGHT_CYAN}Storage:${RESET}"
-        local session_count=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
-        echo "  Total Sessions    : ${BRIGHT_BLUE}$session_count${RESET}"
-        echo "  Total Size        : ${BRIGHT_BLUE}$(du -sh "$BASE_DIR" 2>/dev/null | cut -f1)${RESET}"
-    fi
-    
-    echo ""
-    print_separator "─"
-    echo ""
-    read -rp "${DIM}Press Enter to continue...${RESET}"
-}
-
-# ============================================================================
-# INPUT HANDLER
-# ============================================================================
 
 handle_selection() {
     local choice="$1"
-    
     case "${choice,,}" in
-        1) module_recon ;;
-        2) module_scan ;;
-        3) module_web ;;
-        4) module_vuln ;;
-        5) module_report ;;
-        c|config) show_config ;;
+        1) kraken_recon_run ;;
+        2) kraken_scan_run ;;
+        3) kraken_web_run ;;
+        4) kraken_vuln_run ;;
+        5) kraken_report_run ;;
+        c|config) kraken_display_config ;;
         q|quit|exit)
-            echo ""
-            log_message "info" "Shutting down Kraken..."
-            echo "${BRIGHT_MAGENTA}${BOLD}Thanks for using Kraken! 🐙${RESET}"
-            echo ""
+            echo
+            log_step "Shutting down Kraken..."
+            printf '%s%sThanks for using Kraken!%s\n\n' "${BRIGHT_MAGENTA}" "${BOLD}" "${RESET}"
             exit 0
             ;;
         "")
             return
             ;;
         *)
-            log_message "error" "Invalid option: $choice"
+            log_error "Invalid option: ${choice}"
             sleep 1
             ;;
     esac
 }
 
-# ============================================================================
-# MAIN LOOP
-# ============================================================================
-
 main_loop() {
+    local choice
     while true; do
-        clear_screen
-        display_banner
-        display_menu
-        
-        # Show current session in prompt
-        echo "${DIM}Current session: ${BRIGHT_GREEN}$SESSION_NAME${RESET}"
-        echo ""
-        read -rp " ${BRIGHT_BLUE}$(whoami)${BRIGHT_MAGENTA}@Kraken${RESET}:~${BRIGHT_BLUE}$ ${RESET}" choice
-        echo ""
-        
-        handle_selection "$choice"
+        kraken_clear_screen
+        kraken_display_banner
+        kraken_display_menu
+
+        printf '%sCurrent session: %s%s%s\n\n' \
+            "${DIM}" "${BRIGHT_GREEN}" "${KRAKEN_SESSION_NAME}" "${RESET}"
+        read -rp " ${BRIGHT_BLUE}$(whoami)${BRIGHT_MAGENTA}@Kraken${RESET}:~${BRIGHT_BLUE}\$ ${RESET}" choice
+        echo
+
+        handle_selection "${choice}"
     done
 }
 
-# ============================================================================
-# INITIALIZATION & ENTRY POINT
-# ============================================================================
-
-initialize_session() {
-    clear_screen
-    display_banner
-    
-    echo "${BRIGHT_MAGENTA}${BOLD}╔═══════════════════════════════════════╗${RESET}"
-    echo "${BRIGHT_MAGENTA}${BOLD}║       Session Initialization          ║${RESET}"
-    echo "${BRIGHT_MAGENTA}${BOLD}╚═══════════════════════════════════════╝${RESET}"
-    echo ""
-    
-    # Show existing sessions
-    if [[ -d "$BASE_DIR" ]]; then
-        local existing_sessions=($(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" 2>/dev/null | sort -r))
-        
-        if [[ ${#existing_sessions[@]} -gt 0 ]]; then
-            echo "${BRIGHT_CYAN}Existing sessions:${RESET}"
-            local i=1
-            for session in "${existing_sessions[@]}"; do
-                local size=$(du -sh "$BASE_DIR/$session" 2>/dev/null | cut -f1)
-                local files=$(find "$BASE_DIR/$session" -type f 2>/dev/null | wc -l)
-                echo "  ${DIM}[$i]${RESET} $session ${DIM}($size, $files files)${RESET}"
-                ((i++))
-                
-                # Show max 5 sessions
-                if [[ $i -gt 5 ]]; then
-                    echo "  ${DIM}... and $((${#existing_sessions[@]} - 5)) more${RESET}"
-                    break
-                fi
-            done
-            echo ""
-        fi
-    fi
-    
-    echo "${BRIGHT_YELLOW}Choose session mode:${RESET}"
-    echo ""
-    echo "  ${BRIGHT_CYAN}[1]${RESET} Create new named session (e.g., 'client_acme_web_audit')"
-    echo "  ${BRIGHT_CYAN}[2]${RESET} Continue existing session"
-    echo "  ${BRIGHT_CYAN}[3]${RESET} Auto-generate session name (session_YYYYMMDD_HHMMSS)"
-    echo ""
-    
-    read -rp "${BRIGHT_CYAN}[?]${RESET} Choose option [1]: " session_mode
-    session_mode=${session_mode:-1}
-    
-    case "$session_mode" in
-        1)
-            # Custom session name
-            echo ""
-            echo "${DIM}Tips: Use descriptive names like:${RESET}"
-            echo "${DIM}  - client_acme_initial_scan${RESET}"
-            echo "${DIM}  - webapp_pentest_2025${RESET}"
-            echo "${DIM}  - internal_network_audit${RESET}"
-            echo ""
-            
-            while true; do
-                read -rp "${BRIGHT_CYAN}[?]${RESET} Enter session name: " custom_name
-                
-                # Clean the name (remove spaces, special chars)
-                custom_name=$(echo "$custom_name" | tr ' ' '_' | sed 's/[^a-zA-Z0-9_-]//g')
-                
-                if [[ -z "$custom_name" ]]; then
-                    log_message "error" "Session name cannot be empty"
-                    continue
-                fi
-                
-                # Check if already exists
-                if [[ -d "$BASE_DIR/$custom_name" ]]; then
-                    echo ""
-                    log_message "warning" "Session '$custom_name' already exists"
-                    read -rp "${BRIGHT_YELLOW}[?]${RESET} Continue with existing session? (Y/n): " continue_existing
-                    
-                    if [[ "${continue_existing,,}" != "n" ]]; then
-                        SESSION_NAME="$custom_name"
-                        OUTPUT_DIR="$BASE_DIR/$SESSION_NAME"
-                        log_message "success" "Continuing session: $SESSION_NAME"
-                        break
-                    else
-                        continue
-                    fi
-                else
-                    SESSION_NAME="$custom_name"
-                    OUTPUT_DIR="$BASE_DIR/$SESSION_NAME"
-                    log_message "success" "Created new session: $SESSION_NAME"
-                    break
-                fi
-            done
-            ;;
-        
-        2)
-            # Continue existing session
-            echo ""
-            
-            if [[ ! -d "$BASE_DIR" ]]; then
-                log_message "error" "No existing sessions found"
-                sleep 2
-                initialize_session
-                return
-            fi
-            
-            local sessions=($(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" 2>/dev/null | sort -r))
-            
-            if [[ ${#sessions[@]} -eq 0 ]]; then
-                log_message "error" "No existing sessions found"
-                sleep 2
-                initialize_session
-                return
-            fi
-            
-            echo "${BRIGHT_CYAN}Select session:${RESET}"
-            echo ""
-            
-            local i=1
-            for session in "${sessions[@]}"; do
-                local size=$(du -sh "$BASE_DIR/$session" 2>/dev/null | cut -f1)
-                local files=$(find "$BASE_DIR/$session" -type f 2>/dev/null | wc -l)
-                local date_mod=$(stat -c %y "$BASE_DIR/$session" 2>/dev/null | cut -d' ' -f1)
-                echo "  ${BRIGHT_CYAN}[$i]${RESET} $session"
-                echo "      ${DIM}Size: $size | Files: $files | Modified: $date_mod${RESET}"
-                echo ""
-                ((i++))
-            done
-            
-            read -rp "${BRIGHT_CYAN}[?]${RESET} Choose session number [1]: " session_num
-            session_num=${session_num:-1}
-            
-            if [[ "$session_num" =~ ^[0-9]+$ ]] && [[ $session_num -ge 1 ]] && [[ $session_num -le ${#sessions[@]} ]]; then
-                local idx=$((session_num - 1))
-                SESSION_NAME="${sessions[$idx]}"
-                OUTPUT_DIR="$BASE_DIR/$SESSION_NAME"
-                log_message "success" "Continuing session: $SESSION_NAME"
-            else
-                log_message "error" "Invalid selection"
-                sleep 2
-                initialize_session
-                return
-            fi
-            ;;
-        
-        3|*)
-            # Auto-generate
-            SESSION_NAME="session_$(date +%Y%m%d_%H%M%S)"
-            OUTPUT_DIR="$BASE_DIR/$SESSION_NAME"
-            log_message "success" "Auto-generated session: $SESSION_NAME"
-            ;;
-    esac
-    
-    echo ""
-    sleep 1
-}
-
-# Check dependencies on startup
 check_dependencies() {
-    local missing_critical=()
-    
-    # Warn about missing optional tools
-    local recommended=("nmap" "curl" "host")
-    for tool in "${recommended[@]}"; do
-        if ! command_exists "$tool"; then
-            missing_critical+=("$tool")
-        fi
+    local missing=()
+    local tool
+    for tool in nmap curl host; do
+        command_exists "${tool}" || missing+=("${tool}")
     done
-    
-    if [[ ${#missing_critical[@]} -gt 0 ]]; then
-        clear
-        log_message "warning" "Some recommended tools are missing:"
-        for tool in "${missing_critical[@]}"; do
-            echo "  ${BRIGHT_YELLOW}[!]${RESET} $tool"
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        kraken_clear_screen
+        log_warn "Some recommended tools are missing:"
+        for tool in "${missing[@]}"; do
+            printf '  %s[!]%s %s\n' "${BRIGHT_YELLOW}" "${RESET}" "${tool}"
         done
-        echo ""
-        echo "${DIM}Kraken will work with reduced functionality.${RESET}"
-        echo "${DIM}Install missing tools for full features.${RESET}"
-        echo ""
-        read -rp "${DIM}Press Enter to continue anyway...${RESET}"
+        echo
+        printf '%sKraken will work with reduced functionality.%s\n' "${DIM}" "${RESET}"
+        printf '%sInstall missing tools for full features.%s\n\n' "${DIM}" "${RESET}"
+        press_enter_to_continue
     fi
 }
 
-# Check if running as root (warning)
-if [[ $EUID -eq 0 ]]; then
-    clear
-    log_message "warning" "Running as root - proceed with caution!"
-    sleep 2
-fi
+main() {
+    case "${1:-}" in
+        -h|--help) print_usage; exit 0 ;;
+        -v|--version) printf '%s v%s\n' "${KRAKEN_NAME}" "${KRAKEN_VERSION}"; exit 0 ;;
+        "") ;;
+        *) print_usage; exit 1 ;;
+    esac
 
-# Check dependencies
-check_dependencies
+    if [[ ${EUID} -eq 0 ]]; then
+        kraken_clear_screen
+        log_warn "Running as root - proceed with caution!"
+        sleep 2
+    fi
 
-# Initialize session (ask user for session name)
-initialize_session
+    check_dependencies
+    kraken_initialize_session
+    main_loop
+}
 
-# Create output directory
-mkdir -p "$OUTPUT_DIR"
-
-# Start main loop
-main_loop
+main "$@"
