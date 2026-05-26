@@ -1,0 +1,30 @@
+# Kraken output (runtime data)
+kraken_output/
+output/
+*.log
+*.tmp
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local environment
+.env
+.env.local
+*.local
+
+# Backups
+*.bak
+*.orig
+*.rej
+
+# Graphify artifacts (project-local indexing)
+graphify-out/
