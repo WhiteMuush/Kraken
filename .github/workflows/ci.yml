@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@master
+        env:
+          # SC1091: sourcing dynamic paths (lib/*.sh discovered at runtime).
+          # SC2034: color variables are exported for other modules and may
+          # not all be used inside a given file.
+          SHELLCHECK_OPTS: -e SC1091 -e SC2034
+        with:
+          severity: warning
+
+  syntax:
+    name: bash -n
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check syntax of all shell scripts
+        run: |
+          set -euo pipefail
+          fail=0
+          while IFS= read -r -d '' f; do
+            if ! bash -n "$f"; then
+              echo "::error file=$f::syntax error"
+              fail=1
+            fi
+          done < <(find . -type f -name '*.sh' -print0)
+          exit "$fail"
+
+  smoke:
+    name: smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source chain and check exposed functions
+        run: |
+          set -euo pipefail
+          bash -c '
+            set -uo pipefail
+            source lib/core.sh
+            source lib/logger.sh
+            source lib/installer.sh
+            source lib/ui.sh
+            source lib/session.sh
+            for m in lib/modules/*.sh; do source "$m"; done
+
+            expected=(
+              log_step log_info log_success log_warn log_error
+              command_exists ensure_command ensure_repo
+              prompt_value prompt_yesno press_enter_to_continue
+              kraken_term_width kraken_clear_screen kraken_print_separator
+              kraken_display_banner kraken_display_menu kraken_display_config
+              kraken_initialize_session test_connectivity
+              kraken_recon_run kraken_scan_run kraken_web_run
+              kraken_vuln_run kraken_report_run
+            )
+            missing=()
+            for f in "${expected[@]}"; do
+              declare -F "$f" >/dev/null || missing+=("$f")
+            done
+            if (( ${#missing[@]} > 0 )); then
+              printf "missing function: %s\n" "${missing[@]}" >&2
+              exit 1
+            fi
+            echo "smoke ok (${#expected[@]} functions)"
+          '
+      - name: Help and version flags
+        run: |
+          bash kraken.sh --help >/dev/null
+          bash kraken.sh --version
