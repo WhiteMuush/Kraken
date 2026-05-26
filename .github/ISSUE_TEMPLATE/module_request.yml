@@ -1,0 +1,62 @@
+name: Module request
+description: Suggest a new module (tentacle) or a tool to integrate
+labels: ["enhancement", "module"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to request a new Kraken module or to integrate an
+        additional tool into an existing module.
+
+  - type: input
+    id: tool
+    attributes:
+      label: Tool name
+      placeholder: "e.g., naabu, katana, dnsx"
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: Tool homepage / repository URL
+      placeholder: "https://github.com/..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Module category
+      options:
+        - Reconnaissance
+        - Port scanning
+        - Web enumeration
+        - Vulnerability assessment
+        - Reporting
+        - New module
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Why is this useful?
+      description: What does this tool add that current modules do not cover?
+    validations:
+      required: true
+
+  - type: textarea
+    id: usage
+    attributes:
+      label: Typical command line
+      placeholder: "tool --target example.com --out results.json"
+      render: shell
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: "I have searched existing issues to avoid duplicates"
+          required: true
