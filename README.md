@@ -4,6 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Shell: bash](https://img.shields.io/badge/Shell-bash%20%E2%89%A5%204.0-1f425f.svg)](https://www.gnu.org/software/bash/)
+[![Wiki](https://img.shields.io/badge/docs-wiki-blue.svg)](https://github.com/WhiteMuush/Kraken/wiki)
+
+> 📖 **Full documentation lives in the [Kraken Wiki](https://github.com/WhiteMuush/Kraken/wiki)** —
+> installation, usage, per-module guides, configuration, output layout
+> and how to extend Kraken. This README is a quick overview.
 
 > Modular Bash penetration testing orchestrator.
 > Reconnaissance, scanning, enumeration, vulnerability checks and
@@ -128,5 +133,6 @@ written permission before testing systems you do not own.
 
 ## Links
 
+- Wiki (full docs): <https://github.com/WhiteMuush/Kraken/wiki>
 - Linktree: <https://linktr.ee/melvinpetit>
 - Repository: <https://github.com/WhiteMuush/kraken>
