@@ -7,7 +7,7 @@ fi
 KRAKEN_CORE_LOADED=1
 
 # Project metadata.
-KRAKEN_VERSION="1.1.0"
+KRAKEN_VERSION="1.2.0"
 KRAKEN_NAME="Kraken Pentest Framework"
 
 # Runtime globals (populated by lib/session.sh).
@@ -43,6 +43,20 @@ fi
 export RESET BOLD DIM
 export RED GREEN YELLOW BLUE MAGENTA CYAN
 export BRIGHT_RED BRIGHT_GREEN BRIGHT_YELLOW BRIGHT_BLUE BRIGHT_MAGENTA BRIGHT_CYAN
+
+# Validate a target (domain, hostname or IP). Rejects empty input and
+# anything containing whitespace or shell metacharacters before it is
+# handed to an external tool. Returns 0 when the target looks safe.
+kraken_valid_target() {
+    local target="$1"
+    [[ -n "${target}" ]] || return 1
+    # Reject whitespace and shell-dangerous characters.
+    [[ "${target}" =~ [[:space:]\;\|\&\$\`\(\)\<\>\"\'\\] ]] && return 1
+    # Must contain only host-legal characters (alnum, dot, hyphen, colon
+    # for IPv6, and slash so a URL host can be pre-trimmed by the caller).
+    [[ "${target}" =~ ^[A-Za-z0-9._:/-]+$ ]] || return 1
+    return 0
+}
 
 # Width of the terminal, defaulting to 80 when stdout is not a TTY.
 kraken_term_width() {

@@ -61,6 +61,7 @@ jobs:
               command_exists ensure_command ensure_repo
               prompt_value prompt_yesno press_enter_to_continue
               kraken_term_width kraken_clear_screen kraken_print_separator
+              kraken_valid_target
               kraken_display_banner kraken_display_menu kraken_display_config
               kraken_initialize_session test_connectivity
               kraken_recon_run kraken_scan_run kraken_web_run

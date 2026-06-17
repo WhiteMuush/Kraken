@@ -6,21 +6,50 @@ if [[ -n "${KRAKEN_MODULE_RECON_LOADED:-}" ]]; then
 fi
 KRAKEN_MODULE_RECON_LOADED=1
 
+# Query a single record type with dig, printing a header and a fallback
+# line when nothing is returned.
+_kraken_recon_dig_record() {
+    local target="$1" rtype="$2"
+    echo "=== ${rtype} Records ==="
+    local answer
+    answer=$(dig +short "${rtype}" "${target}" 2>/dev/null)
+    if [[ -n "${answer}" ]]; then
+        printf '%s\n' "${answer}"
+    else
+        echo "No ${rtype} records found"
+    fi
+    echo
+}
+
 _kraken_recon_dns_records() {
     local target="$1"
     local out_file="$2"
     {
         echo "# DNS Records for ${target} - $(date)"
         echo
-        if command_exists host; then
+        if command_exists dig; then
+            local rtype
+            for rtype in A AAAA MX NS TXT CNAME; do
+                _kraken_recon_dig_record "${target}" "${rtype}"
+            done
+        elif command_exists host; then
             echo "=== A Records ==="
             host -t A "${target}" 2>/dev/null | grep "has address" || echo "No A records found"
+            echo
+            echo "=== AAAA Records ==="
+            host -t AAAA "${target}" 2>/dev/null | grep "IPv6 address" || echo "No AAAA records"
             echo
             echo "=== MX Records ==="
             host -t MX "${target}" 2>/dev/null | grep "mail is handled" || echo "No MX records"
             echo
             echo "=== NS Records ==="
             host -t NS "${target}" 2>/dev/null | grep "name server" || echo "No NS records"
+            echo
+            echo "=== TXT Records ==="
+            host -t TXT "${target}" 2>/dev/null | grep "descriptive text" || echo "No TXT records"
+            echo
+            echo "=== CNAME Records ==="
+            host -t CNAME "${target}" 2>/dev/null | grep "alias" || echo "No CNAME records"
         elif command_exists nslookup; then
             echo "=== DNS Info (nslookup) ==="
             nslookup "${target}" 2>/dev/null || echo "nslookup failed"
@@ -64,14 +93,18 @@ _kraken_recon_whois() {
 _kraken_recon_reverse_dns() {
     local target="$1"
     local out_file="$2"
-    if ! command_exists host; then
-        return 0
-    fi
     log_step "Attempting reverse DNS..."
     local ip
-    ip=$(host "${target}" 2>/dev/null | grep "has address" | head -1 | awk '{print $NF}')
-    if [[ -n "${ip}" ]]; then
-        host "${ip}" > "${out_file}" 2>/dev/null || true
+    if command_exists dig; then
+        ip=$(dig +short A "${target}" 2>/dev/null | head -1)
+        [[ -n "${ip}" ]] && dig +short -x "${ip}" > "${out_file}" 2>/dev/null || true
+    elif command_exists host; then
+        ip=$(host "${target}" 2>/dev/null | grep "has address" | head -1 | awk '{print $NF}')
+        [[ -n "${ip}" ]] && host "${ip}" > "${out_file}" 2>/dev/null || true
+    else
+        return 0
+    fi
+    if [[ -n "${ip:-}" ]]; then
         log_success "Reverse DNS completed"
     fi
 }
@@ -84,8 +117,8 @@ kraken_recon_run() {
 
     local target
     target=$(prompt_value "Enter target (domain or IP)")
-    if [[ -z "${target}" ]]; then
-        log_error "No target specified"
+    if ! kraken_valid_target "${target}"; then
+        log_error "Invalid or empty target"
         press_enter_to_continue
         return
     fi

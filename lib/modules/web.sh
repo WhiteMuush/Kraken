@@ -49,13 +49,26 @@ _kraken_web_headers() {
     done
 }
 
+# Number of concurrent probes during directory enumeration.
+KRAKEN_WEB_JOBS="${KRAKEN_WEB_JOBS:-8}"
+
+# Probe one path, emitting a "STATUS<TAB>path" line for interesting codes.
+_kraken_web_probe_path() {
+    local url="$1" dir="$2"
+    local status
+    status=$(_kraken_web_curl_status "${url}/${dir}")
+    case "${status}" in
+        200|401|403) printf '%s\t%s\n' "${status}" "${dir}" ;;
+    esac
+}
+
 _kraken_web_directories() {
     local url="$1"
     local out_file="$2"
     if ! command_exists curl; then
         return
     fi
-    log_step "Testing common directories..."
+    log_step "Testing common directories (parallel, ${KRAKEN_WEB_JOBS} jobs)..."
     {
         echo "# Directory Scan - $(date)"
         echo "# Target: ${url}"
@@ -65,25 +78,38 @@ _kraken_web_directories() {
     echo
     printf '%s═══ Directory Enumeration ═══%s\n' "${BRIGHT_MAGENTA}" "${RESET}"
 
-    local dir status test_url
-    for dir in "${KRAKEN_WEB_PATHS[@]}"; do
-        test_url="${url}/${dir}"
-        status=$(_kraken_web_curl_status "${test_url}")
+    # Fan out probes as bounded background jobs, collect raw results, sort
+    # them for deterministic output, then render and persist.
+    local raw dir
+    raw=$(
+        for dir in "${KRAKEN_WEB_PATHS[@]}"; do
+            while (( $(jobs -rp | wc -l) >= KRAKEN_WEB_JOBS )); do
+                wait -n 2>/dev/null || break
+            done
+            _kraken_web_probe_path "${url}" "${dir}" &
+        done
+        wait
+    )
+
+    [[ -z "${raw}" ]] && return
+    local status path
+    while IFS=$'\t' read -r status path; do
+        [[ -n "${status}" ]] || continue
         case "${status}" in
             200)
-                printf '  %s[+] /%s%s (HTTP %s)\n' "${BRIGHT_GREEN}" "${dir}" "${RESET}" "${status}"
-                echo "FOUND: /${dir} (HTTP ${status})" >> "${out_file}"
+                printf '  %s[+] /%s%s (HTTP %s)\n' "${BRIGHT_GREEN}" "${path}" "${RESET}" "${status}"
+                echo "FOUND: /${path} (HTTP ${status})" >> "${out_file}"
                 ;;
             403)
-                printf '  %s[!] /%s%s (HTTP %s - Forbidden)\n' "${BRIGHT_YELLOW}" "${dir}" "${RESET}" "${status}"
-                echo "FORBIDDEN: /${dir} (HTTP ${status})" >> "${out_file}"
+                printf '  %s[!] /%s%s (HTTP %s - Forbidden)\n' "${BRIGHT_YELLOW}" "${path}" "${RESET}" "${status}"
+                echo "FORBIDDEN: /${path} (HTTP ${status})" >> "${out_file}"
                 ;;
             401)
-                printf '  %s[!] /%s%s (HTTP %s - Auth Required)\n' "${BRIGHT_YELLOW}" "${dir}" "${RESET}" "${status}"
-                echo "AUTH: /${dir} (HTTP ${status})" >> "${out_file}"
+                printf '  %s[!] /%s%s (HTTP %s - Auth Required)\n' "${BRIGHT_YELLOW}" "${path}" "${RESET}" "${status}"
+                echo "AUTH: /${path} (HTTP ${status})" >> "${out_file}"
                 ;;
         esac
-    done
+    done < <(printf '%s\n' "${raw}" | sort)
 }
 
 _kraken_web_technologies() {
@@ -137,6 +163,14 @@ kraken_web_run() {
     if [[ ! "${url}" =~ ^https?:// ]]; then
         url="http://${url}"
         log_info "Assuming http:// protocol"
+    fi
+
+    local host
+    host="${url#*://}"; host="${host%%/*}"
+    if ! kraken_valid_target "${host}"; then
+        log_error "Invalid URL host: ${host}"
+        press_enter_to_continue
+        return
     fi
 
     local slug
