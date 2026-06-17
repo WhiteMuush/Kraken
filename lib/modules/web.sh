@@ -165,6 +165,14 @@ kraken_web_run() {
         log_info "Assuming http:// protocol"
     fi
 
+    local host
+    host="${url#*://}"; host="${host%%/*}"
+    if ! kraken_valid_target "${host}"; then
+        log_error "Invalid URL host: ${host}"
+        press_enter_to_continue
+        return
+    fi
+
     local slug
     slug=$(echo "${url}" | sed 's|https\?://||' | tr '/:' '_')
     local web_dir="${KRAKEN_OUTPUT_DIR}/web_${slug}"

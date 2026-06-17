@@ -70,8 +70,8 @@ kraken_vuln_run() {
 
     local target
     target=$(prompt_value "Enter target (IP/domain)")
-    if [[ -z "${target}" ]]; then
-        log_error "No target specified"
+    if ! kraken_valid_target "${target}"; then
+        log_error "Invalid or empty target"
         press_enter_to_continue
         return
     fi
