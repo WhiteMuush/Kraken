@@ -7,7 +7,7 @@ fi
 KRAKEN_CORE_LOADED=1
 
 # Project metadata.
-KRAKEN_VERSION="1.1.0"
+KRAKEN_VERSION="1.2.0"
 KRAKEN_NAME="Kraken Pentest Framework"
 
 # Runtime globals (populated by lib/session.sh).
