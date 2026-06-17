@@ -1,0 +1,10 @@
+# Kraken shellcheck configuration.
+# Keep this in sync with SHELLCHECK_OPTS in .github/workflows/ci.yml so
+# local linting matches CI.
+
+# SC1091: sourcing dynamic paths (lib/*.sh discovered at runtime).
+disable=SC1091
+
+# SC2034: color variables are exported for other modules and may not all
+# be used inside a given file.
+disable=SC2034
