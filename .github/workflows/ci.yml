@@ -52,11 +52,13 @@ jobs:
             source lib/core.sh
             source lib/logger.sh
             source lib/installer.sh
+            source lib/compat.sh
             source lib/ui.sh
             source lib/session.sh
             for m in lib/modules/*.sh; do source "$m"; done
 
             expected=(
+              detect_distro_family host_is_supported container_runtime compat_gate
               log_step log_info log_success log_warn log_error
               command_exists ensure_command ensure_repo
               prompt_value prompt_yesno press_enter_to_continue
@@ -81,3 +83,13 @@ jobs:
         run: |
           bash kraken.sh --help >/dev/null
           bash kraken.sh --version
+
+  bats:
+    name: bats unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bats
+        run: sudo apt-get update -qq && sudo apt-get install -y bats
+      - name: Run the test suite
+        run: bats tests/
