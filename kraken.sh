@@ -14,6 +14,8 @@ source "${KRAKEN_ROOT}/lib/core.sh"
 source "${KRAKEN_ROOT}/lib/logger.sh"
 # shellcheck source=lib/installer.sh
 source "${KRAKEN_ROOT}/lib/installer.sh"
+# shellcheck source=lib/compat.sh
+source "${KRAKEN_ROOT}/lib/compat.sh"
 # shellcheck source=lib/ui.sh
 source "${KRAKEN_ROOT}/lib/ui.sh"
 # shellcheck source=lib/session.sh
@@ -116,6 +118,10 @@ main() {
         "") ;;
         *) print_usage; exit 1 ;;
     esac
+
+    # On a non-Debian host, offer to run inside the shared Debian box. This may
+    # replace the current process with the containerised run and never return.
+    compat_gate "${KRAKEN_ROOT}" kraken.sh Kraken
 
     if [[ ${EUID} -eq 0 ]]; then
         kraken_clear_screen

@@ -28,6 +28,9 @@
   module/target, one aggregated text report at the end.
 - **Graceful degradation** - missing tools trigger a warning, never an
   abort. Install only what you need.
+- **Runs on any distro** - native on Debian/Kali, otherwise runs inside a
+  shared lightweight Debian box via podman or docker, reused across toolkits
+  (see [docs/DISTRO_COMPAT.md](docs/DISTRO_COMPAT.md)).
 
 ## Quick start
 
