@@ -304,7 +304,7 @@ _kraken_report_md_section() {
         return
     fi
     local dir target f
-    for dir in "${KRAKEN_OUTPUT_DIR}"/${prefix}*; do
+    for dir in "${KRAKEN_OUTPUT_DIR}/${prefix}"*; do
         [[ -d "${dir}" ]] || continue
         target=$(basename "${dir}" | sed "s/${prefix}//")
         echo "### ${target}"
