@@ -41,6 +41,14 @@ Real scans and raw-socket tools need the host network, so the box runs with
 container shares the host's network stack: it is not a sealed sandbox. That is
 expected for a pentest tool you launch yourself, but worth knowing.
 
+Under **rootless** podman (the default on Fedora, Bazzite and similar hosts),
+the container is granted `NET_RAW` but it stays ineffective over the host
+network namespace, so raw-socket scans cannot open a socket there. The toolkit
+handles this rather than crashing: nmap automatically falls back to an
+unprivileged TCP connect scan. For raw-socket scanning (nmap SYN, OS
+detection), run the toolkit natively on a Debian/Kali host or in a rootful
+container.
+
 ## Overrides
 
 | Variable | Default | Purpose |
