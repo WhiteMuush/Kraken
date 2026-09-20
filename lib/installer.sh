@@ -28,6 +28,54 @@ ensure_command() {
     return 1
 }
 
+# has_raw_socket
+# Returns 0 only when a raw socket can actually be opened, so nmap SYN scans,
+# OS detection, etc. work. Returns non-zero for an unprivileged user or a
+# rootless podman box, where CAP_NET_RAW can appear set in CapEff yet stay
+# ineffective over the host network namespace. Because that bit lies in the
+# rootless case, the only reliable test is to open a socket for real; the
+# verdict is cached for the session. With no interpreter to try, it assumes no
+# raw socket (safe: a connect scan works everywhere).
+has_raw_socket() {
+    case "${_KRAKEN_RAW_SOCKET:-}" in
+        yes) return 0 ;;
+        no)  return 1 ;;
+    esac
+    local rc=1
+    if command_exists python3; then
+        python3 - <<'PY' 2>/dev/null
+import socket, sys
+try:
+    socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP).close()
+except OSError:
+    sys.exit(1)
+PY
+        rc=$?
+    elif command_exists perl; then
+        perl -e 'use Socket; socket(my $s, AF_INET, SOCK_RAW, getprotobyname("tcp")) or exit 1;' 2>/dev/null
+        rc=$?
+    fi
+    if [[ $rc -eq 0 ]]; then _KRAKEN_RAW_SOCKET=yes; else _KRAKEN_RAW_SOCKET=no; fi
+    return "$rc"
+}
+
+# safe_nmap [args...]
+# Runs nmap so it never dies on "Couldn't open a raw socket": with no raw
+# socket available it prepends --unprivileged, forcing a TCP connect scan.
+# Pass ordinary nmap arguments; do not add -sS/-sU/-O, which cannot run
+# unprivileged and would conflict with the fallback.
+safe_nmap() {
+    local -a priv=()
+    if ! has_raw_socket; then
+        priv+=(--unprivileged)
+        if [[ -z "${_KRAKEN_NMAP_NOTICE:-}" ]]; then
+            log_warn "No raw socket available; nmap will run an unprivileged TCP connect scan."
+            _KRAKEN_NMAP_NOTICE=1
+        fi
+    fi
+    nmap "${priv[@]}" "$@"
+}
+
 # Ensure a git repository is cloned at the destination, optionally running a
 # follow-up command after cloning. Returns non-zero if git is missing.
 # Usage:
