@@ -11,11 +11,11 @@ _kraken_scan_with_nmap() {
     local scan_dir="$2"
 
     log_step "Phase 1: Quick scan (top 100 ports)..."
-    nmap -Pn -T4 --top-ports 100 "${target}" \
+    safe_nmap -Pn -T4 --top-ports 100 "${target}" \
         -oN "${scan_dir}/nmap_quick.txt" 2>/dev/null || true
 
     log_step "Phase 2: Service version detection..."
-    nmap -Pn -sV --open "${target}" \
+    safe_nmap -Pn -sV --open "${target}" \
         -oN "${scan_dir}/nmap_services.txt" 2>/dev/null || true
 
     log_success "Nmap scan complete"
