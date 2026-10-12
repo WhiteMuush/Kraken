@@ -119,7 +119,7 @@ main() {
         *) print_usage; exit 1 ;;
     esac
 
-    # On a non-Debian host, offer to run inside the shared Debian box. This may
+    # On a non-Debian host, offer to run inside its own Debian box. This may
     # replace the current process with the containerised run and never return.
     compat_gate "${KRAKEN_ROOT}" kraken.sh Kraken
 

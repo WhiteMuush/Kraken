@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# tests/compat.bats - lib/compat.sh: host distro detection and the shared
+# tests/compat.bats - lib/compat.sh: host distro detection and the per-toolkit
 # container bootstrap argument builders. No container is ever launched here.
 
 load 'test_helper'
@@ -46,35 +46,30 @@ ID_LIKE="fedora"')"
     [[ "$output" =~ ^(podman|docker|none)$ ]]
 }
 
-@test "box create args: named, host network, caps, mounts, sleep" {
-    run _box_create_args pentest-toolbox debian:stable-slim /host/toolkits /host/engagements
-    [[ "$output" == *"--name pentest-toolbox"* ]]
+@test "box create args: named, host network, caps, single toolkit mount, sleep" {
+    run _box_create_args pentest-kraken debian:stable-slim /host/Kraken /host/engagements
+    [[ "$output" == *"--name pentest-kraken"* ]]
     [[ "$output" == *"--network host"* ]]
     [[ "$output" == *"--cap-add NET_RAW"* ]]
-    [[ "$output" == *"/host/toolkits:/opt/toolkits:z"* ]]
+    [[ "$output" == *"/host/Kraken:/opt/toolkit:z"* ]]
+    [[ "$output" != *"/opt/toolkits"* ]]
     [[ "$output" == *"debian:stable-slim"* ]]
     [[ "$output" == *"sleep infinity"* ]]
 }
 
-@test "box_name: shared by default" {
-    unset PENTEST_BOX_NAME PENTEST_BOX_DEDICATED
-    [ "$(_box_name Kraken)" = "pentest-toolbox" ]
-}
-
-@test "box_name: dedicated gives one box per toolkit" {
+@test "box_name: one box per toolkit by default" {
     unset PENTEST_BOX_NAME
-    export PENTEST_BOX_DEDICATED=1
     [ "$(_box_name Kraken)" = "pentest-kraken" ]
 }
 
 @test "box_name: an explicit PENTEST_BOX_NAME wins" {
-    export PENTEST_BOX_NAME=custom-box PENTEST_BOX_DEDICATED=1
+    export PENTEST_BOX_NAME=custom-box
     [ "$(_box_name Kraken)" = "custom-box" ]
 }
 
 @test "box exec args: marker env and the toolkit's own entry script" {
-    run _box_exec_args pentest-toolbox /opt/toolkits/Kraken/kraken.sh
+    run _box_exec_args pentest-kraken /opt/toolkit/kraken.sh
     [[ "$output" == *"PENTEST_IN_BOX=1"* ]]
     [[ "$output" == *"PENTEST_ENGAGEMENTS=/root/pentest-engagements"* ]]
-    [[ "$output" == *"/opt/toolkits/Kraken/kraken.sh"* ]]
+    [[ "$output" == *"/opt/toolkit/kraken.sh"* ]]
 }
